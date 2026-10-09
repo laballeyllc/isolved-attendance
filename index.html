@@ -24,6 +24,7 @@
   --offlight: #cfc7e8;
   --missing: #46525e;
   --holiday: #e2e6ea;
+  --extra: #a9d3c6;
   --good: #22704f;
   --bad: #a24a14;
   --focus: #2b6cb0;
@@ -152,8 +153,18 @@ tr.term td { color: var(--muted); }
 .empty { padding: 28px 16px; color: var(--muted); }
 .note { padding: 12px 16px; color: var(--muted); font-size: 13.5px; border-bottom: 1px solid var(--rule); }
 
+/* schedule editor */
+.days { width: 100%; border-collapse: collapse; font-size: 14px; }
+.days td { padding: 4px 6px; border-bottom: 1px solid #eef1f4; text-align: left; white-space: nowrap; }
+.days input[type=time] { border: 1px solid var(--rule); border-radius: 6px; padding: 4px 6px; }
+.days input[type=time]:disabled { opacity: .35; }
+dialog.editor .days label { display: flex; flex-direction: row; align-items: center; gap: 8px; font-weight: 600; min-width: 120px; color: var(--ink); font-size: 14px; }
+.days input[type=time] { width: 124px; }
+#copyFirst { text-align: left; }
+.days input[type=checkbox] { width: 17px; height: 17px; accent-color: var(--ontime); }
+.dept { display: block; color: var(--muted); font-size: 12.5px; font-weight: 400; }
 /* shift editor */
-dialog.editor { border: 1px solid var(--rule); border-radius: 10px; padding: 22px; width: min(460px, 94vw); }
+dialog.editor { border: 1px solid var(--rule); border-radius: 10px; padding: 22px; width: min(540px, 96vw); }
 dialog.editor form { display: flex; flex-direction: column; gap: 12px; }
 dialog.editor .row { display: flex; gap: 12px; flex-wrap: wrap; }
 dialog.editor .row .field { flex: 1; min-width: 120px; }
@@ -187,10 +198,10 @@ footer p + p { margin-top: 6px; }
 .linkish { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 13px; }
 .err { color: var(--verylate); font-size: 14px; min-height: 1em; }
 .userbar { display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
-dialog { border: 1px solid var(--rule); border-radius: 10px; padding: 24px; max-width: 360px; width: 92vw; }
-dialog form { display: flex; flex-direction: column; gap: 12px; }
-dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px; padding: 9px 10px; }
+#pwDialog { border: 1px solid var(--rule); border-radius: 10px; padding: 24px; max-width: 360px; width: 92vw; }
+#pwDialog form { display: flex; flex-direction: column; gap: 12px; }
+#pwDialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+#pwDialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px; padding: 9px 10px; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" integrity="sha384-K1nraABOP/zFehpLIUksXebbs7jMpB8gYMlb+uhVKZcWT/9Vkq1+qhv6ndC+1Yuz" crossorigin="anonymous"></script>
 </head>
@@ -296,8 +307,9 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
   <section class="pair">
     <div class="panel">
       <h2>On-time rate by week</h2>
-      <p class="sub">Bars show late arrivals each week.</p>
+      <p class="sub">Line shows the on-time rate (left axis). Bars show the number of late arrivals (right axis).</p>
       <div id="weekly"></div>
+      <div class="legend"><span><i style="background:var(--ontime);height:3px;width:16px;vertical-align:3px"></i>On-time rate</span><span><i style="background:var(--late);opacity:.45"></i>Late arrivals</span></div>
     </div>
     <div class="panel">
       <h2>Days off by type</h2>
@@ -310,7 +322,7 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
     <div class="panel-head">
       <div>
         <h2>Attendance calendar</h2>
-        <p class="sub">Each square is one workday. Select a row or square to open that person's daily detail.</p>
+        <p class="sub">Each square is one scheduled day. Select a row or square to open that person's daily detail.</p>
       </div>
       <label class="field">Order
         <select id="calSort">
@@ -329,6 +341,7 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
       <span><i style="background:var(--offlight)"></i>Partial day off</span>
       <span><i style="background:var(--missing)"></i>No punch or time off</span>
       <span><i style="background:var(--holiday)"></i>Holiday</span>
+      <span><i style="background:var(--extra)"></i>Worked on an unscheduled day</span>
     </div>
     <div class="cal" id="calendar"></div>
   </section>
@@ -336,11 +349,11 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
   <section class="pair even" id="patterns">
     <div class="panel">
       <h2>By day of the week</h2>
-      <p class="sub">Share of workdays with a late arrival or a full-day absence.</p>
+      <p class="sub">Share of scheduled days with a late arrival or a full-day absence.</p>
       <div id="dow"></div>
     </div>
     <div class="panel" id="adjPanel">
-      <h2>Absences next to weekends and holidays</h2>
+      <h2>Absences next to days off and holidays</h2>
       <p class="sub">Visible to admins only.</p>
       <div id="adjacency"></div>
     </div>
@@ -363,7 +376,7 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
     <button class="tab" role="tab" data-tab="punct" aria-selected="true">Punctuality</button>
     <button class="tab" role="tab" data-tab="off" aria-selected="false">Days off</button>
     <button class="tab" role="tab" data-tab="emp" aria-selected="false">Employee detail</button>
-    <button class="tab" role="tab" data-tab="shifts" aria-selected="false">Start times</button>
+    <button class="tab" role="tab" data-tab="shifts" aria-selected="false">Schedules</button>
     <span class="spacer"></span>
     <button class="btn" id="csv">Download table (CSV)</button>
   </div>
@@ -375,21 +388,21 @@ dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px;
 <dialog class="editor" id="shiftDialog">
   <form id="shiftForm">
     <div>
-      <h2 id="shiftTitle">Start time</h2>
+      <h2 id="shiftTitle">Schedule</h2>
       <p class="sub" id="shiftCurrent"></p>
     </div>
+    <table class="days" id="shiftDays" aria-label="Workdays and times"></table>
+    <div><button type="button" class="linkish" id="copyFirst">Copy the first selected day's times to all selected days</button></div>
     <div class="row">
-      <label class="field">Start <input type="time" id="shiftStart" required></label>
-      <label class="field">End <input type="time" id="shiftEnd" required></label>
       <label class="field">Starting on <input type="date" id="shiftFrom" required></label>
     </div>
     <label class="field">Note (optional) <input type="text" id="shiftNote" maxlength="200" placeholder="For example: moved to early shift"></label>
-    <p class="sub">Days before the starting date keep the earlier schedule. To apply to all history, use the earliest date.</p>
+    <p class="sub">Check the days this person is scheduled to work. Days before the starting date keep the earlier schedule; to apply to all history, use the earliest date.</p>
     <div id="shiftList"></div>
     <p class="err" id="shiftErr" role="alert"></p>
     <div style="display:flex; gap:10px; justify-content:flex-end">
       <button type="button" class="btn" id="shiftCancel">Cancel</button>
-      <button type="submit" class="primary" id="shiftSave">Save start time</button>
+      <button type="submit" class="primary" id="shiftSave">Save schedule</button>
     </div>
   </form>
 </dialog>
@@ -444,8 +457,6 @@ const HIST = idx(D.settings.history_start);
 const HOLIDAYS = new Map(D.holidays.map(h => [idx(h.date), h.name]));
 const EMP = new Map(D.employees.map(e => [e.id, { ...e, hireI: e.hire ? idx(e.hire) : null, termI: e.term ? idx(e.term) : null }]));
 const ROWS = D.days.map(r => { const c = r.slice(); c[C.DATE] = idx(r[C.DATE]); return c; });
-const isWork = d => { const w = wday(d); return w > 0 && w < 6 && !HOLIDAYS.has(d); };
-const isAdj = d => isWork(d) && (!isWork(d - 1) || !isWork(d + 1));
 function isTerm(e) {
   const st = (e.status || "").toLowerCase();
   if (st.includes("term")) return true;
@@ -453,41 +464,94 @@ function isTerm(e) {
   return e.termI != null && e.termI <= THROUGH;
 }
 
-/* ------------------------------------------------------------ start times */
+/* ------------------------------------------------------------ schedules */
+// Each schedule entry: from a date on, which weekdays the person works and the times for each.
+const DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+const WEEK_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+const DAY_LABEL = { sun: "Sun", mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat" };
+const DAY_FULL = { sun: "Sunday", mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday" };
+const DEFAULT_DAYS = Object.fromEntries(["mon", "tue", "wed", "thu", "fri"].map(k => [k, [DEF_START, DEF_END]]));
 let SHIFTS = new Map();
+function normDays(s) {
+  if (s.days && typeof s.days === "object" && Object.keys(s.days).length) {
+    const out = {};
+    for (const k of DAY_KEYS) { const v = s.days[k]; if (Array.isArray(v) && v.length === 2) out[k] = [hm(v[0]), hm(v[1])]; }
+    return out;
+  }
+  return Object.fromEntries(["mon", "tue", "wed", "thu", "fri"].map(k => [k, [s.start, s.end]]));
+}
 function loadShifts(list) {
   SHIFTS = new Map();
   for (const s of list || []) {
-    const r = { id: s.id, from: idx(s.from), start: s.start, end: s.end, note: s.note || "", by: s.by || "" };
+    const r = { id: s.id, from: idx(s.from), days: normDays(s), note: s.note || "", by: s.by || "" };
     if (!SHIFTS.has(s.emp)) SHIFTS.set(s.emp, []);
     SHIFTS.get(s.emp).push(r);
   }
   for (const l of SHIFTS.values()) l.sort((a, b) => b.from - a.from);
 }
-function shiftFor(empId, d) {
+function scheduleFor(empId, d) {
   const l = SHIFTS.get(empId);
-  if (l) for (const s of l) if (s.from <= d) return { start: s.start, end: s.end, custom: true };
-  return { start: DEF_START, end: DEF_END, custom: false };
+  if (l) for (const s of l) if (s.from <= d) return { days: s.days, custom: true, entry: s };
+  return { days: DEFAULT_DAYS, custom: false, entry: null };
 }
+function shiftFor(empId, d) {
+  const sc = scheduleFor(empId, d), v = sc.days[DAY_KEYS[wday(d)]];
+  return v ? { sched: true, start: v[0], end: v[1], custom: sc.custom } : { sched: false, start: null, end: null, custom: sc.custom };
+}
+const isWorkFor = (id, d) => !HOLIDAYS.has(d) && shiftFor(id, d).sched;
+const isAdjFor = (id, d) => isWorkFor(id, d) && (!isWorkFor(id, d - 1) || !isWorkFor(id, d + 1));
 function vsOf(r) {
   if (r[C.IN] == null) return { vs: null, ve: null, sh: null };
   const sh = shiftFor(r[C.EMP], r[C.DATE]);
+  if (!sh.sched) return { vs: null, ve: null, sh };
   return { vs: r[C.IN] - sh.start, ve: r[C.OUT] != null ? r[C.OUT] - sh.end : null, sh };
+}
+function describeDays(days) {
+  const parts = [];
+  for (let i = 0; i < 7;) {
+    const k = WEEK_ORDER[i], v = days[k];
+    if (!v) { i++; continue; }
+    let j = i;
+    while (j + 1 < 7 && days[WEEK_ORDER[j + 1]] && days[WEEK_ORDER[j + 1]][0] === v[0] && days[WEEK_ORDER[j + 1]][1] === v[1]) j++;
+    parts.push(`${DAY_LABEL[k]}${j > i ? (j > i + 1 ? "–" : ", ") + DAY_LABEL[WEEK_ORDER[j]] : ""} ${clock(v[0])} to ${clock(v[1])}`);
+    i = j + 1;
+  }
+  return parts.join("; ") || "No scheduled days";
 }
 loadShifts(D.shifts);
 
 /* ------------------------------------------------------------ periods */
 function quarterStart(i) { const d = new Date(i * DAY); return Date.UTC(d.getUTCFullYear(), Math.floor(d.getUTCMonth() / 3) * 3, 1) / DAY; }
+function quarterEnd(i) { const d = new Date(quarterStart(i) * DAY); return Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 3, 1) / DAY - 1; }
+function quarterName(i) { const d = new Date(quarterStart(i) * DAY); return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`; }
+function quarterMonths(i) { const s = quarterStart(i), e = quarterEnd(i); return `${fmtMonth(s)}–${fmtMonth(e)}`; }
 function periodRange(p) {
   if (p === "thisq") return [quarterStart(THROUGH), THROUGH];
   if (p === "lastq") { const qs = quarterStart(THROUGH); return [quarterStart(qs - 1), qs - 1]; }
+  if (p.startsWith("q:")) { const qs = +p.slice(2); return [qs, Math.min(quarterEnd(qs), THROUGH)]; }
   if (p === "last30") return [THROUGH - 29, THROUGH];
   if (p === "ytd") { const d = new Date(THROUGH * DAY); return [Date.UTC(d.getUTCFullYear(), 0, 1) / DAY, THROUGH]; }
   if (p === "all") return [HIST, THROUGH];
   return null;
 }
+// Quarters compare with the previous calendar quarter (the same number of days into it when
+// the current quarter is still in progress). Other periods compare with the same number of
+// days just before. Returns null when there's no earlier data to compare with.
+function prevRange(p, a, b) {
+  const quarterly = p === "thisq" || p === "lastq" || p.startsWith("q:");
+  if (quarterly && a === quarterStart(a)) {
+    const pqs = quarterStart(a - 1);
+    if (pqs < HIST) return null;
+    const pe = Math.min(pqs + (b - a), a - 1);
+    const full = pe === quarterEnd(pqs);
+    return { a: pqs, b: pe, label: full ? `${quarterName(pqs)} (${quarterMonths(pqs)})` : `the same point in ${quarterName(pqs)} (${fmtShort(pqs)} to ${fmtShort(pe)})` };
+  }
+  if (p === "ytd" || p === "all") return null;
+  const len = b - a + 1, pa = a - len, pb = a - 1;
+  if (pa < HIST) return null;
+  return { a: pa, b: pb, label: `the previous ${len} days (${fmtShort(pa)} to ${fmtShort(pb)})` };
+}
 
-/* ------------------------------------------------------------ calculation */
 function compute(a, b, o) {
   b = Math.min(b, THROUGH); a = Math.max(a, HIST);
   const team = o.team, grace = o.grace;
@@ -513,7 +577,7 @@ function compute(a, b, o) {
   const ids = new Set([...byEmp.keys(), ...current]);
 
   const stats = [], hist = new Map(), weeks = new Map(), otWeeks = new Map();
-  const dow = [0, 1, 2, 3, 4].map(() => ({ ev: 0, late: 0, sched: 0, absent: 0 }));
+  const dow = Array.from({ length: 7 }, () => ({ ev: 0, late: 0, sched: 0, absent: 0 }));
   const adj = { base: 0, total: 0, sick: [0, 0], unpaid: [0, 0], unrec: [0, 0] };
   let anyCustom = false;
 
@@ -522,7 +586,7 @@ function compute(a, b, o) {
     const rows = (byEmp.get(id) || []).sort((x, y) => x[C.DATE] - y[C.DATE]);
     const s = { id, e, rows, term: isTerm(e), workdays: 0, punched: 0, evaluated: 0, ontime: 0, late: 0, lateMin: 0,
                 worst: 0, arrSum: 0, leftEarly: 0, unrec: 0, unrecDays: [], reg: 0, ot: 0, worked: 0,
-                custom: false, sick: [0, 0], unpaid: [0, 0], unrecAdj: 0,
+                custom: false, extra: 0, sick: [0, 0], unpaid: [0, 0], unrecAdj: 0,
                 off: Object.fromEntries(OFF_TYPES.map(t => [t[0], 0])) };
     const recorded = new Set(), absentDays = new Set();
     for (const r of rows) {
@@ -534,14 +598,15 @@ function compute(a, b, o) {
       if (r[C.OT]) otWeeks.set(wk, (otWeeks.get(wk) || 0) + r[C.OT]);
       if (r[C.IN] == null) {
         if (offH > 0) absentDays.add(d);
-        if ((r[C.SICK] || 0) > 0) { s.sick[0]++; if (isAdj(d)) s.sick[1]++; }
-        if ((r[C.UNPAID] || 0) > 0) { s.unpaid[0]++; if (isAdj(d)) s.unpaid[1]++; }
+        if ((r[C.SICK] || 0) > 0) { s.sick[0]++; if (isAdjFor(id, d)) s.sick[1]++; }
+        if ((r[C.UNPAID] || 0) > 0) { s.unpaid[0]++; if (isAdjFor(id, d)) s.unpaid[1]++; }
         continue;
       }
       s.punched++;
       if (offH > 0 && offH < HPD) continue;      // partial-day absence excuses arrival/departure
       const { vs, ve, sh } = vsOf(r);
       if (sh.custom) { s.custom = true; anyCustom = true; }
+      if (!sh.sched) { s.extra++; continue; }   // worked on a day they aren't scheduled: not judged late/early
       s.evaluated++;
       s.arrSum += r[C.IN];
       hist.set(vs, (hist.get(vs) || 0) + 1);
@@ -550,21 +615,21 @@ function compute(a, b, o) {
       if (isLate) { s.late++; s.lateMin += vs; s.worst = Math.max(s.worst, vs); w.late++; }
       else s.ontime++;
       weeks.set(wk, w);
-      if (wd >= 1 && wd <= 5) { dow[wd - 1].ev++; if (isLate) dow[wd - 1].late++; }
+      dow[wd].ev++; if (isLate) dow[wd].late++;
       if (ve != null && ve < 0) s.leftEarly++;
     }
     const startI = Math.max(a, e.hireI ?? a), endI = Math.min(b, e.termI ?? b);
     for (let d = startI; d <= endI; d++) {
-      if (!isWork(d)) continue;
+      if (!isWorkFor(id, d)) continue;
       s.workdays++;
-      const wd = wday(d);
+      const wd = wday(d), adjDay = isAdjFor(id, d);
       const missing = current.has(id) && !recorded.has(d);
       if (current.has(id) || recorded.has(d)) {
-        dow[wd - 1].sched++;
-        adj.total++; if (isAdj(d)) adj.base++;
-        if (missing || absentDays.has(d)) dow[wd - 1].absent++;
+        dow[wd].sched++;
+        adj.total++; if (adjDay) adj.base++;
+        if (missing || absentDays.has(d)) dow[wd].absent++;
       }
-      if (missing) { s.unrec++; s.unrecDays.push(d); if (isAdj(d)) s.unrecAdj++; }
+      if (missing) { s.unrec++; s.unrecDays.push(d); if (adjDay) s.unrecAdj++; }
     }
     adj.sick[0] += s.sick[0]; adj.sick[1] += s.sick[1];
     adj.unpaid[0] += s.unpaid[0]; adj.unpaid[1] += s.unpaid[1];
@@ -692,33 +757,47 @@ function arrivalStrip(hist, grace, relative) {
     ${ticks}</svg>`;
 }
 
-function weeklyChart(weeks) {
+function niceStep(raw) {
+  // Whole-number tick step: 1, 2, 5, 10, 15, 20, 25, 50, 100, ...
+  const opts = [1, 2, 5, 10, 15, 20, 25, 50];
+  for (let p = 1; ; p *= 10) for (const o of opts) if (o * p >= raw) return o * p;
+}
+function weeklyChart(weeks, a, b) {
   const keys = [...weeks.keys()].sort((x, y) => x - y);
   if (!keys.length) return `<p class="empty">No arrivals in this period.</p>`;
-  const W = 640, H = 230, L = 40, R = 34, top = 12, base = 190;
-  const iw = (W - L - R) / keys.length, maxLate = Math.max(1, ...keys.map(k => weeks.get(k).late));
+  const W = 640, H = 236, L = 42, R = 42, top = 22, base = 196;
+  const iw = (W - L - R) / keys.length;
+  const lateStep = niceStep(Math.max(1, ...keys.map(k => weeks.get(k).late)) / 4), lateMax = lateStep * 4;
   const rates = keys.map(k => { const w = weeks.get(k); return w.ev ? (w.ev - w.late) / w.ev : 1; });
   const lo = Math.min(0.5, Math.floor((Math.min(...rates) - 0.05) * 10) / 10);
   const yOf = r => base - ((r - lo) / (1 - lo)) * (base - top);
+  const yLate = n => base - (n / lateMax) * (base - top);
   const step = (1 - lo) > 0.6 ? 0.2 : 0.1;
-  let bars = "", pts = [], grid = "", labels = "";
+  let bars = "", pts = [], grid = "", labels = "", right = "";
   for (let p = 1; p >= lo - 1e-9; p -= step) {
     const y = yOf(p);
     grid += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="axis" x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(p * 100)}%</text>`;
   }
+  for (let i = 0; i <= 4; i++) {
+    const n = lateMax * i / 4, y = yLate(n);
+    right += `<line x1="${W - R}" x2="${W - R + 4}" y1="${y}" y2="${y}" stroke="var(--muted)"/><text class="axis" x="${W - R + 7}" y="${y + 4}">${num(n)}</text>`;
+  }
+  right += `<line x1="${W - R}" x2="${W - R}" y1="${top}" y2="${base}" stroke="var(--rule)"/>`;
+  const titles = `<text class="axis" x="2" y="${top - 10}" font-weight="600">On time</text>
+    <text class="axis" x="${W - R + 7}" y="${top - 10}" font-weight="600">Late</text>`;
   const every = Math.ceil(keys.length / 8);
   keys.forEach((k, i) => {
-    const w = weeks.get(k), cx = L + iw * i + iw / 2;
-    const bh = (w.late / maxLate) * (base - top) * 0.45;
-    bars += `<rect x="${cx - iw * 0.3}" y="${base - bh}" width="${iw * 0.6}" height="${bh}" fill="var(--late)" opacity="0.35"><title>Week of ${fmtShort(k)}: ${w.late} late arrivals</title></rect>`;
+    const w = weeks.get(k), cx = L + iw * i + iw / 2, ws = Math.max(k, a);
+    const y2 = yLate(w.late);
+    bars += `<rect x="${cx - iw * 0.3}" y="${y2}" width="${iw * 0.6}" height="${base - y2}" fill="var(--late)" opacity="0.32"><title>Week of ${fmtShort(ws)}: ${w.late} late arrivals</title></rect>`;
     const r = w.ev ? (w.ev - w.late) / w.ev : 0;
-    pts.push([cx, yOf(r), r, k, w]);
-    if (i % every === 0) labels += `<text class="axis" x="${cx}" y="${base + 16}" text-anchor="middle">${fmtShort(k)}</text>`;
+    pts.push([cx, yOf(r), r, ws, w]);
+    if (i % every === 0) labels += `<text class="axis" x="${cx}" y="${base + 16}" text-anchor="middle">${fmtShort(ws)}</text>`;
   });
   const path = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
   const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--ontime)"><title>Week of ${fmtShort(p[3])}: ${pct(p[2])} on time (${p[4].ev - p[4].late} of ${p[4].ev})</title></circle>`).join("");
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly on-time rate">
-    ${grid}${bars}<path d="${path}" fill="none" stroke="var(--ontime)" stroke-width="2.5"/>${dots}${labels}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly on-time rate and late arrivals">
+    ${grid}${bars}${right}${titles}<path d="${path}" fill="none" stroke="var(--ontime)" stroke-width="2.5"/>${dots}${labels}</svg>`;
 }
 
 function hbars(items, fmt, colorOf) {
@@ -741,23 +820,24 @@ function offChart(T, countUnrec) {
 }
 
 function dowChart(dow) {
-  if (!dow.some(d => d.sched)) return `<p class="empty">No workdays in this period.</p>`;
-  const names = ["Mon", "Tue", "Wed", "Thu", "Fri"];
-  const lateR = dow.map(d => d.ev ? d.late / d.ev : 0), absR = dow.map(d => d.sched ? d.absent / d.sched : 0);
+  const order = [1, 2, 3, 4, 5, 6, 0].filter(i => dow[i].sched || dow[i].ev);
+  if (!order.length) return `<p class="empty">No scheduled days in this period.</p>`;
+  const names = order.map(i => DAY_LABEL[DAY_KEYS[i]]);
+  const lateR = order.map(i => dow[i].ev ? dow[i].late / dow[i].ev : 0), absR = order.map(i => dow[i].sched ? dow[i].absent / dow[i].sched : 0);
   const W = 520, H = 230, L = 38, R = 10, top = 16, base = 186;
   const max = Math.max(0.05, ...lateR, ...absR) * 1.15;
-  const gw = (W - L - R) / 5, bw = gw * 0.3;
+  const gw = (W - L - R) / order.length, bw = Math.min(40, gw * 0.3);
   let out = "", grid = "";
   const step = max > 0.4 ? 0.1 : max > 0.2 ? 0.05 : 0.02;
   for (let p = 0; p <= max; p += step) {
     const y = base - (p / max) * (base - top);
     grid += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="axis" x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(p * 100)}%</text>`;
   }
-  names.forEach((n, i) => {
-    const gx = L + gw * i + gw / 2;
+  order.forEach((di, i) => {
+    const n = names[i], d = dow[di], gx = L + gw * i + gw / 2;
     const h1 = (lateR[i] / max) * (base - top), h2 = (absR[i] / max) * (base - top);
-    out += `<rect x="${gx - bw - 2}" y="${base - h1}" width="${bw}" height="${h1}" fill="var(--late)" rx="2"><title>${n}: late on ${pct1(lateR[i])} of days (${dow[i].late} of ${dow[i].ev})</title></rect>`;
-    out += `<rect x="${gx + 2}" y="${base - h2}" width="${bw}" height="${h2}" fill="var(--off)" rx="2"><title>${n}: absent on ${pct1(absR[i])} of workdays (${dow[i].absent} of ${dow[i].sched})</title></rect>`;
+    out += `<rect x="${gx - bw - 2}" y="${base - h1}" width="${bw}" height="${h1}" fill="var(--late)" rx="2"><title>${n}: late on ${pct1(lateR[i])} of days (${d.late} of ${d.ev})</title></rect>`;
+    out += `<rect x="${gx + 2}" y="${base - h2}" width="${bw}" height="${h2}" fill="var(--off)" rx="2"><title>${n}: absent on ${pct1(absR[i])} of scheduled days (${d.absent} of ${d.sched})</title></rect>`;
     out += `<text class="axis" x="${gx - bw / 2 - 2}" y="${base - h1 - 5}" text-anchor="middle">${pct(lateR[i])}</text>`;
     out += `<text class="axis" x="${gx + bw / 2 + 2}" y="${base - h2 - 5}" text-anchor="middle">${pct(absR[i])}</text>`;
     out += `<text x="${gx}" y="${base + 18}" font-size="13" text-anchor="middle" fill="var(--ink)">${n}</text>`;
@@ -777,13 +857,13 @@ function adjacencyPanel(R) {
     const n = s.sick[0] + s.unrec, k = s.sick[1] + s.unrecAdj;
     return { s, n, k, share: n ? k / n : 0 };
   }).filter(x => x.k >= 3 && x.share >= base + 0.25).sort((x, y) => y.k - x.k);
-  return `<div class="tablewrap"><table><thead><tr><th class="l">Absence type</th><th>Days</th><th>Next to a weekend or holiday</th><th>Share</th></tr></thead><tbody>
+  return `<div class="tablewrap"><table><thead><tr><th class="l">Absence type</th><th>Days</th><th>Next to a day off or holiday</th><th>Share</th></tr></thead><tbody>
       ${line("Sick", A.sick)}${line("Unpaid", A.unpaid)}${line("Unrecorded", A.unrec)}
-      <tr><td class="l sub">All workdays, for comparison</td><td>${num(A.total)}</td><td>${num(A.base)}</td><td><b>${pct(base)}</b></td></tr>
+      <tr><td class="l sub">All scheduled days, for comparison</td><td>${num(A.total)}</td><td>${num(A.base)}</td><td><b>${pct(base)}</b></td></tr>
     </tbody></table></div>
     <h3 style="margin-top:14px">People with a noticeably higher share</h3>
     ${people.length ? `<ul class="attn">${people.map(x => `<li><button class="who" data-emp="${x.s.id}">${esc(fullName(x.s.e))}</button>
-        <div class="why"><span class="pill p-off">${x.k} of ${x.n} sick or unrecorded days next to a weekend or holiday</span></div>
+        <div class="why"><span class="pill p-off">${x.k} of ${x.n} sick or unrecorded days next to a day off or holiday</span></div>
         <span class="sup">${esc(x.s.e.sup_name || "")}</span></li>`).join("")}</ul>`
       : `<p class="sub">No one has 3 or more such days at a share well above the comparison rate.</p>`}
     <p class="caution">Some sick and medical leave is legally protected. Use this to decide whether an HR review is needed, not as grounds for discipline.</p>`;
@@ -791,15 +871,15 @@ function adjacencyPanel(R) {
 
 function teamsPanel(R) {
   if (!IS_ADMIN || TEAMS.length < 2) return null;
-  const rows = TEAMS.map(([id, name]) => {
+  const rows = TEAMS.map(([id, label, name, dept]) => {
     const t = compute(R.a, R.b, { ...R.o, team: id }).T;
-    return { id, name, emps: t.emps, onRate: t.onRate, avgLate: t.avgLate, offPct: t.offPct, ot: t.ot, otPer: t.emps ? t.ot / t.emps : null };
+    return { id, name, dept, emps: t.emps, onRate: t.onRate, avgLate: t.avgLate, offPct: t.offPct, ot: t.ot, otPer: t.emps ? t.ot / t.emps : null };
   }).filter(r => r.emps > 0).sort((x, y) => (y.onRate ?? -1) - (x.onRate ?? -1));
   if (!rows.length) return `<p class="empty">No team activity in this period.</p>`;
   const bestOT = Math.max(1e-9, ...rows.map(r => r.otPer || 0));
   return `<div class="tablewrap"><table><thead><tr><th class="l">Team</th><th>People</th><th>On time</th><th>Avg min late</th><th>Days off (% of schedule)</th><th>Overtime hours</th><th>Overtime per person</th></tr></thead><tbody>
     ${rows.map(r => `<tr class="clickable" data-team="${r.id}" title="Filter to this team">
-      <td class="l name">${esc(r.name)}</td><td>${r.emps}</td>
+      <td class="l name">${esc(r.dept || r.name)}${r.dept ? `<span class="dept">${esc(r.name)}</span>` : ""}</td><td>${r.emps}</td>
       <td><span class="bar" style="width:${Math.round((r.onRate || 0) * 50)}px"></span>${pct1(r.onRate)}</td>
       <td>${r.avgLate == null ? "–" : num(r.avgLate, 1)}</td><td>${pct1(r.offPct)}</td><td>${num(r.ot, 1)}</td>
       <td><span class="bar" style="width:${Math.round(((r.otPer || 0) / bestOT) * 40)}px;background:var(--late)"></span>${num(r.otPer, 1)}</td></tr>`).join("")}
@@ -819,8 +899,9 @@ function overtimePanel(R) {
   const every = Math.ceil(allWeeks.length / 6);
   allWeeks.forEach((k, i) => {
     const v = R.otWeeks.get(k) || 0, h = (v / max) * (base - top), x = L + iw * i;
-    bars += `<rect x="${x + iw * 0.15}" y="${base - h}" width="${iw * 0.7}" height="${h}" fill="var(--late)" rx="1"><title>Week of ${fmtShort(k)}: ${num(v, 1)} overtime hours</title></rect>`;
-    if (i % every === 0) labels += `<text class="axis" x="${x + iw / 2}" y="${base + 15}" text-anchor="middle">${fmtShort(k)}</text>`;
+    const ws = Math.max(k, R.a);
+    bars += `<rect x="${x + iw * 0.15}" y="${base - h}" width="${iw * 0.7}" height="${h}" fill="var(--late)" rx="1"><title>Week of ${fmtShort(ws)}: ${num(v, 1)} overtime hours</title></rect>`;
+    if (i % every === 0) labels += `<text class="axis" x="${x + iw / 2}" y="${base + 15}" text-anchor="middle">${fmtShort(ws)}</text>`;
   });
   const grid = `<line class="gridline" x1="${L}" x2="${W - Rr}" y1="${top}" y2="${top}"/><text class="axis" x="${L - 6}" y="${top + 4}" text-anchor="end">${num(max, 0)}h</text>
     <line x1="${L}" x2="${W - Rr}" y1="${base}" y2="${base}" stroke="var(--rule)"/>`;
@@ -833,9 +914,13 @@ function overtimePanel(R) {
 }
 
 function calendar(R, order) {
-  const days = [];
-  for (let d = R.a; d <= Math.min(R.b, THROUGH); d++) { const w = wday(d); if (w > 0 && w < 6) days.push(d); }
   let list = R.stats.filter(s => s.workdays > 0 || s.rows.length);
+  const days = [];
+  for (let d = R.a; d <= Math.min(R.b, THROUGH); d++) {
+    const w = wday(d);
+    if (w > 0 && w < 6) { days.push(d); continue; }
+    if (list.some(s => shiftFor(s.id, d).sched || s.rows.some(r => r[C.DATE] === d))) days.push(d);
+  }
   if (!days.length || !list.length) return `<p class="empty">Nothing to show for this period.</p>`;
   const by = {
     name: (x, y) => fullName(x.e).localeCompare(fullName(y.e)),
@@ -846,7 +931,7 @@ function calendar(R, order) {
   list = list.slice().sort(by[order] || by.name);
   const NW = 190, CW = 13, G = 2, RH = 17, TOP = 22, WK = 4;
   const xs = []; let x = NW;
-  days.forEach((d, i) => { if (i && wday(d) === 1) x += WK; xs.push(x); x += CW + G; });
+  days.forEach((d, i) => { if (i && d - days[i - 1] > 1 || (i && wday(d) === 1)) x += WK; xs.push(x); x += CW + G; });
   const W = x + 4, H = TOP + list.length * RH + 4;
   let out = "", lastMonth = -1;
   days.forEach((d, i) => {
@@ -862,20 +947,21 @@ function calendar(R, order) {
     days.forEach((d, i) => {
       const e = s.e;
       if ((e.hireI != null && d < e.hireI) || (e.termI != null && d > e.termI)) return;
-      const r = byDate.get(d), hol = HOLIDAYS.get(d);
+      const r = byDate.get(d), hol = HOLIDAYS.get(d), sched = shiftFor(s.id, d).sched;
       let fill = null, tip = "";
       if (r) {
         const offH = OFF_TYPES.reduce((t, t2) => t + (r[t2[2]] || 0), 0);
         const offTxt = OFF_TYPES.filter(t => r[t[2]]).map(t => `${t[1]} ${num(r[t[2]], 1)}h`).join(", ");
         if (r[C.IN] != null) {
-          const { vs } = vsOf(r);
+          const { vs, sh } = vsOf(r);
           if (offH > 0 && offH < HPD) { fill = "var(--offlight)"; tip = `In ${clock(r[C.IN])}. Partial day off: ${offTxt}`; }
+          else if (!sh.sched) { fill = "var(--extra)"; tip = `In ${clock(r[C.IN])}. Not a scheduled day`; }
           else if (vs > R.o.grace) { fill = vs >= 15 ? "var(--verylate)" : "var(--late)"; tip = `In ${clock(r[C.IN])}, ${vs} min late`; }
           else { fill = "var(--ontime)"; tip = `In ${clock(r[C.IN])}, on time`; }
         } else if (offH > 0) { fill = "var(--off)"; tip = `Day off: ${offTxt}`; }
         else if (hol) { fill = "var(--holiday)"; tip = hol; }
         else { fill = "var(--holiday)"; tip = "Hours recorded without a punch"; }
-      } else if (hol) { fill = "var(--holiday)"; tip = hol; }
+      } else if (hol && sched) { fill = "var(--holiday)"; tip = hol; }
       else if (unrec.has(d)) { fill = "var(--missing)"; tip = "No punch or time off recorded"; }
       if (!fill) return;
       out += `<rect x="${xs[i]}" y="${y}" width="${CW}" height="${CW}" rx="2" fill="${fill}" data-emp="${s.id}"><title>${esc(nm)}, ${fmtWday(d)} ${fmtDate(d)}: ${esc(tip)}</title></rect>`;
@@ -895,7 +981,8 @@ const TABLES = {
       ["name", "Employee", s => fullName(s.e), s => `<span class="name">${esc(fullName(s.e))}</span>`, "l"],
       ["status", "Status", s => s.term ? "Terminated" : (s.e.status || "Active"), statusCell, "l"],
       ["sup", "Supervisor", s => s.e.sup_name || "", s => esc(s.e.sup_name || "–"), "l"],
-      ["start", "Start time", s => shiftFor(s.id, THROUGH).start, s => { const sh = shiftFor(s.id, THROUGH); return sh.custom ? `<span class="pill p-custom">${clock(sh.start)}</span>` : clock(sh.start); }],
+      ["start", "Schedule", s => scheduleFor(s.id, THROUGH).custom ? describeDays(scheduleFor(s.id, THROUGH).days) : "Default",
+        s => { const sc = scheduleFor(s.id, THROUGH); return sc.custom ? `<span class="pill p-custom" title="${esc(describeDays(sc.days))}">Custom</span>` : `<span class="sub">Default</span>`; }, "l"],
       ["evaluated", "Days evaluated", s => s.evaluated],
       ["onRate", "On time", s => s.onRate, s => `<span class="bar" style="width:${Math.round((s.onRate || 0) * 60)}px"></span>${pct1(s.onRate)}`],
       ["late", "Late days", s => s.late],
@@ -960,8 +1047,8 @@ function renderTable(key) {
 }
 
 function shiftText(empId) {
-  const sh = shiftFor(empId, THROUGH);
-  return `${clock(sh.start)} to ${clock(sh.end)}${sh.custom ? "" : " (company default)"}`;
+  const sc = scheduleFor(empId, THROUGH);
+  return `${describeDays(sc.days)}${sc.custom ? "" : " (company default)"}`;
 }
 
 function renderEmployee() {
@@ -978,16 +1065,17 @@ function renderEmployee() {
     const r = byDate.get(d), wd = wday(d);
     const hol = HOLIDAYS.get(d);
     const employed = (s.e.hireI == null || d >= s.e.hireI) && (s.e.termI == null || d <= s.e.termI);
-    if (!r && !unrec.has(d) && !(hol && wd > 0 && wd < 6 && employed)) continue;
+    if (!r && !unrec.has(d) && !(hol && employed && shiftFor(s.id, d).sched)) continue;
     let flags = [], offTxt = [], vsTxt = "–", veTxt = "–", startTxt = "";
     if (r) {
       for (const t of OFF_TYPES) if (r[t[2]]) offTxt.push(`${t[1]} ${num(r[t[2]], 1)}h`);
       const offH = OFF_TYPES.reduce((t, x) => t + (r[x[2]] || 0), 0);
       const partial = r[C.IN] != null && offH > 0 && offH < HPD;
       const { vs, ve, sh } = vsOf(r);
-      if (r[C.IN] != null) { vsTxt = signed(vs); startTxt = sh.custom ? clock(sh.start) : ""; }
+      if (r[C.IN] != null && sh.sched) { vsTxt = signed(vs); startTxt = sh.start !== DEF_START ? clock(sh.start) : ""; }
       if (r[C.OUT] != null && ve != null) veTxt = signed(ve);
-      if (r[C.IN] != null && !partial) {
+      if (r[C.IN] != null && !partial && !sh.sched) flags.push(`<span class="pill p-custom">Not a scheduled day</span>`);
+      if (r[C.IN] != null && !partial && sh.sched) {
         if (vs > R.o.grace) flags.push(`<span class="pill ${vs >= 15 ? "p-vlate" : "p-late"}">Late ${vs} min</span>`);
         if (ve != null && ve < 0) flags.push(`<span class="pill p-early">Left ${-ve} min early</span>`);
       }
@@ -1015,7 +1103,7 @@ function renderEmployee() {
       <p class="sub" style="flex-basis:100%">${s.term ? `<span class="pill p-term">Terminated</span> ` : ""}#${esc(e.num || "–")}, ${esc(e.pay_type || "")}, ${esc(e.status || "")}.
         Supervisor ${esc(e.sup_name || "–")}, manager ${esc(e.mgr_name || "–")}.
         ${e.hire ? "Hired " + fmtDate(idx(e.hire)) + "." : ""} ${e.term ? "Terminated " + fmtDate(idx(e.term)) + "." : ""}
-        Shift: ${shiftText(s.id)}. ${canEdit ? `<button class="linkish" data-shift="${s.id}">Change start time</button>` : ""}</p>
+        Schedule: ${esc(shiftText(s.id))}. ${canEdit ? `<button class="linkish" data-shift="${s.id}">Change schedule</button>` : ""}</p>
     </div>
     ${lines.length ? `<table><thead><tr><th class="l">Date</th><th>In</th><th>Out</th><th>vs start (min)</th><th>vs end (min)</th><th>Hours</th><th class="l">Time off</th><th class="l">Notes</th></tr></thead><tbody>${lines.join("")}</tbody></table>`
       : `<p class="empty">No activity recorded in this period.</p>`}`;
@@ -1025,17 +1113,18 @@ function renderShiftsTab() {
   const R = state.R;
   const canEdit = !!(API() && API().canEdit);
   const list = R.stats.slice().sort((x, y) => fullName(x.e).localeCompare(fullName(y.e)));
+  const def = describeDays(DEFAULT_DAYS);
   const note = canEdit
-    ? `Company default is ${clock(DEF_START)} to ${clock(DEF_END)}. Change anyone with a different schedule; lateness updates right away.`
-    : (API() ? `Company default is ${clock(DEF_START)} to ${clock(DEF_END)}. Only admins can change start times.`
-             : `Company default is ${clock(DEF_START)} to ${clock(DEF_END)}. To change start times, use the hosted dashboard; this copy picks them up at the next nightly build.`);
-  if (!list.length) return `<p class="note">${note}</p><p class="empty">No employees match these filters.</p>`;
-  return `<p class="note">${note}</p><table><thead><tr><th class="l">Employee</th><th class="l">Status</th><th class="l">Supervisor</th><th>Start</th><th>End</th><th class="l">Schedule</th>${canEdit ? "<th></th>" : ""}</tr></thead><tbody>
+    ? `Company default: ${def}. Change anyone with different days or hours; lateness and missed days update right away.`
+    : (API() ? `Company default: ${def}. Only admins can change schedules.`
+             : `Company default: ${def}. To change schedules, use the hosted dashboard; this copy picks them up at the next nightly build.`);
+  if (!list.length) return `<p class="note">${esc(note)}</p><p class="empty">No employees match these filters.</p>`;
+  return `<p class="note">${esc(note)}</p><table><thead><tr><th class="l">Employee</th><th class="l">Status</th><th class="l">Supervisor</th><th class="l">Schedule</th><th>Days per week</th><th class="l">In effect since</th>${canEdit ? "<th></th>" : ""}</tr></thead><tbody>
     ${list.map(s => {
-      const sh = shiftFor(s.id, THROUGH), hist = SHIFTS.get(s.id) || [];
-      const desc = sh.custom ? `Custom since ${fmtDate(hist.find(h => h.from <= THROUGH)?.from ?? hist[hist.length - 1].from)}${hist.length > 1 ? `, ${hist.length} changes` : ""}` : "Company default";
+      const sc = scheduleFor(s.id, THROUGH), hist = SHIFTS.get(s.id) || [];
+      const since = sc.custom ? fmtDate(sc.entry.from) + (hist.length > 1 ? ` (${hist.length} changes)` : "") : "Company default";
       return `<tr class="${s.term ? "term" : ""}"><td class="l name">${esc(fullName(s.e))}</td><td class="l">${statusCell(s)}</td><td class="l">${esc(s.e.sup_name || "–")}</td>
-        <td>${sh.custom ? `<span class="pill p-custom">${clock(sh.start)}</span>` : clock(sh.start)}</td><td>${clock(sh.end)}</td><td class="l">${desc}</td>
+        <td class="l">${sc.custom ? `<span class="pill p-custom">Custom</span> ` : ""}${esc(describeDays(sc.days))}</td><td>${Object.keys(sc.days).length}</td><td class="l">${since}</td>
         ${canEdit ? `<td><button class="btn small" data-shift="${s.id}">Change</button></td>` : ""}</tr>`;
     }).join("")}</tbody></table>`;
 }
@@ -1045,17 +1134,23 @@ let editingEmp = null;
 function openShiftEditor(empId) {
   const e = EMP.get(empId); if (!e) return;
   editingEmp = empId;
-  const sh = shiftFor(empId, THROUGH);
-  $("shiftTitle").textContent = `Start time for ${e.first || ""} ${e.last || ""}`;
+  const sc = scheduleFor(empId, THROUGH);
+  $("shiftTitle").textContent = `Schedule for ${e.first || ""} ${e.last || ""}`;
   $("shiftCurrent").textContent = `Current schedule: ${shiftText(empId)}.`;
-  $("shiftStart").value = hhmm(sh.start); $("shiftEnd").value = hhmm(sh.end);
+  $("shiftDays").innerHTML = WEEK_ORDER.map(k => {
+    const v = sc.days[k], st = v ? v[0] : DEF_START, en = v ? v[1] : DEF_END;
+    return `<tr><td><label><input type="checkbox" data-day="${k}" ${v ? "checked" : ""}> ${DAY_FULL[k]}</label></td>
+      <td><input type="time" data-start="${k}" value="${hhmm(st)}" aria-label="${DAY_FULL[k]} start" ${v ? "" : "disabled"}></td>
+      <td>to</td>
+      <td><input type="time" data-end="${k}" value="${hhmm(en)}" aria-label="${DAY_FULL[k]} end" ${v ? "" : "disabled"}></td></tr>`;
+  }).join("");
   const hasAny = SHIFTS.has(empId);
   $("shiftFrom").value = iso(hasAny ? THROUGH + 1 : HIST);
   $("shiftFrom").min = iso(HIST);
   $("shiftNote").value = ""; $("shiftErr").textContent = "";
   const hist = SHIFTS.get(empId) || [];
   $("shiftList").innerHTML = hist.length ? `<h3>Schedule history</h3><ul>${hist.map(h =>
-    `<li><span>From ${fmtDate(h.from)}: ${clock(h.start)} to ${clock(h.end)}${h.note ? ` <span class="sub">(${esc(h.note)})</span>` : ""}${h.by ? ` <span class="sub">by ${esc(h.by)}</span>` : ""}</span>
+    `<li><span>From ${fmtDate(h.from)}: ${esc(describeDays(h.days))}${h.note ? ` <span class="sub">(${esc(h.note)})</span>` : ""}${h.by ? ` <span class="sub">by ${esc(h.by)}</span>` : ""}</span>
      <button type="button" class="linkish" data-remove="${h.id}">Remove</button></li>`).join("")}</ul>
      <p class="sub" style="margin-top:6px">Removing every entry returns this person to the company default.</p>` : "";
   $("shiftDialog").showModal();
@@ -1063,12 +1158,21 @@ function openShiftEditor(empId) {
 async function saveShift(ev) {
   ev.preventDefault();
   const api = API(); if (!api) return;
-  const start = hm($("shiftStart").value), end = hm($("shiftEnd").value);
-  if (!(end > start)) { $("shiftErr").textContent = "End time must be after start time."; return; }
+  const days = {};
+  for (const k of WEEK_ORDER) {
+    if (!document.querySelector(`[data-day="${k}"]`).checked) continue;
+    const st = document.querySelector(`[data-start="${k}"]`).value, en = document.querySelector(`[data-end="${k}"]`).value;
+    if (!st || !en) { $("shiftErr").textContent = `Enter start and end times for ${DAY_FULL[k]}.`; return; }
+    if (!(hm(en) > hm(st))) { $("shiftErr").textContent = `${DAY_FULL[k]}: end time must be after start time.`; return; }
+    days[k] = [st, en];
+  }
+  const keys = Object.keys(days);
+  if (!keys.length) { $("shiftErr").textContent = "Select at least one workday."; return; }
   $("shiftSave").disabled = true;
   try {
     await api.save({ employee_id: editingEmp, effective_from: $("shiftFrom").value,
-                     start_time: $("shiftStart").value, end_time: $("shiftEnd").value, note: $("shiftNote").value.trim() || null });
+                     start_time: days[keys[0]][0], end_time: days[keys[0]][1], days,
+                     note: $("shiftNote").value.trim() || null });
     loadShifts(await api.list());
     $("shiftDialog").close(); render();
   } catch (e) { $("shiftErr").textContent = "Couldn't save: " + (e.message || e); }
@@ -1092,7 +1196,7 @@ function toCSV() {
     const T = TABLES[state.tab], rows = sortedRows(state.tab);
     lines.push(T.cols.map(c => q(c[1])).join(","));
     for (const s of rows) lines.push(T.cols.map(c => {
-      const v = c[0] === "start" ? clock(c[2](s)) : c[2](s);
+      const v = c[2](s);
       return q(typeof v === "number" ? Math.round(v * 1000) / 1000 : v);
     }).join(","));
   }
@@ -1118,10 +1222,10 @@ function render() {
   const o = { team: $("team").value ? +$("team").value : null, grace: Math.max(0, +$("grace").value || 0),
               countUnrec: $("unrec").checked, showTerm: $("showTerm").checked };
   const R = state.R = compute(range[0], range[1], o);
-  const len = R.b - R.a + 1, pa = R.a - len, pb = R.a - 1;
-  const P = state.P = pa >= HIST ? compute(pa, pb, o) : null;
+  const pr = prevRange(p, R.a, R.b);
+  const P = state.P = pr ? compute(pr.a, pr.b, o) : null;
   const T = R.T, PT = P ? P.T : null;
-  const vsLabel = P ? `previous ${len} days (${fmtShort(pa)} to ${fmtShort(pb)})` : "";
+  const vsLabel = pr ? pr.label : "";
 
   $("rate").textContent = pct(T.onRate);
   $("rateNote").textContent = T.evaluated
@@ -1129,11 +1233,11 @@ function render() {
     : "No clock-ins in this period.";
   if (PT && PT.onRate != null && T.onRate != null) {
     const d = Math.round((T.onRate - PT.onRate) * 100);
-    $("rateDelta").innerHTML = d === 0 ? `<span class="d-flat">Same as the ${esc(vsLabel)}.</span>`
-      : `<span class="${d > 0 ? "d-good" : "d-bad"}">${d > 0 ? "Up" : "Down"} ${Math.abs(d)} point${Math.abs(d) === 1 ? "" : "s"} from the ${esc(vsLabel)} (${pct(PT.onRate)}).</span>`;
-  } else $("rateDelta").innerHTML = `<span class="d-flat">No earlier data of the same length to compare.</span>`;
+    $("rateDelta").innerHTML = d === 0 ? `<span class="d-flat">Same as ${esc(vsLabel)}.</span>`
+      : `<span class="${d > 0 ? "d-good" : "d-bad"}">${d > 0 ? "Up" : "Down"} ${Math.abs(d)} point${Math.abs(d) === 1 ? "" : "s"} from ${esc(vsLabel)}, which was ${pct(PT.onRate)}.</span>`;
+  } else $("rateDelta").innerHTML = `<span class="d-flat">No earlier period in the data to compare with.</span>`;
 
-  $("stripSub").textContent = `${fmtDate(R.a)} to ${fmtDate(R.b)}. Each bar is one minute, measured against each person's start time.` +
+  $("stripSub").textContent = `${fmtDate(R.a)} to ${fmtDate(R.b)}. Each bar is one minute, measured against each person's scheduled start.` +
     (o.grace ? ` Arrivals up to ${o.grace} min late count as on time.` : "");
   $("arrivals").innerHTML = arrivalStrip(R.hist, o.grace, R.anyCustom);
 
@@ -1149,10 +1253,10 @@ function render() {
   ];
   $("figures").innerHTML = figs.map(f => `<div class="fig"><b>${f[0]}</b><span>${f[1]}</span>${f[2] || ""}</div>`).join("") +
     (P ? "" : "");
-  $("figures").title = P ? `Changes compare with the ${vsLabel}.` : "";
+  $("figures").title = P ? `Changes compare with ${vsLabel}.` : "";
 
   renderAttention(R, P);
-  $("weekly").innerHTML = weeklyChart(R.weeks);
+  $("weekly").innerHTML = weeklyChart(R.weeks, R.a, R.b);
   $("offSub").textContent = `Hours converted at ${HPD} hours per day.` + (o.countUnrec ? " Includes unrecorded missed days." : "");
   $("offtypes").innerHTML = offChart(T, o.countUnrec);
   $("calendar").innerHTML = calendar(R, $("calSort").value);
@@ -1165,7 +1269,7 @@ function render() {
   $("teamPanel").classList.toggle("hidden", teamsHTML == null);
   $("teamsAndOt").style.gridTemplateColumns = teamsHTML == null ? "1fr" : "";
   if (teamsHTML != null) $("teams").innerHTML = teamsHTML;
-  $("otSub").textContent = R.T.ot ? `${num(R.T.ot, 1)} hours in this period${PT ? `, compared with ${num(PT.ot, 1)} in the ${vsLabel}` : ""}.` : "";
+  $("otSub").textContent = R.T.ot ? `${num(R.T.ot, 1)} hours in this period${PT ? `, compared with ${num(PT.ot, 1)} in ${vsLabel}` : ""}.` : "";
   $("overtime").innerHTML = overtimePanel(R);
   renderTab();
 }
@@ -1192,11 +1296,21 @@ function init() {
   // When a list of dashboard users is available, only people with dashboard access
   // (and an isolved ID) appear as teams. Otherwise every supervisor/manager in the data does.
   const leads = (D.team_leads || []).filter(t => teamIds.has(t.id));
-  TEAMS = (leads.length ? leads.map(t => [t.id, t.name || D.people[t.id] || `Employee ${t.id}`])
-                        : [...teamIds].map(id => [id, D.people[id] || `Employee ${id}`]))
+  // TEAMS entries: [id, label shown in lists, person's name, department]
+  TEAMS = (leads.length ? leads.map(t => { const nm = t.name || D.people[t.id] || `Employee ${t.id}`;
+                                            return [t.id, t.dept ? `${t.dept} (${nm})` : nm, nm, t.dept || ""]; })
+                        : [...teamIds].map(id => { const nm = D.people[id] || `Employee ${id}`; return [id, nm, nm, ""]; }))
           .sort((x, y) => x[1].localeCompare(y[1]));
   $("team").innerHTML = `<option value="">Everyone</option>` + TEAMS.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join("");
   $("from").min = $("to").min = iso(HIST); $("from").max = $("to").max = iso(THROUGH);
+  // One choice per calendar quarter in the data, newest first.
+  const qOpts = [];
+  // Current and last quarter have their own choices above, so list the earlier ones here.
+  for (let qs = quarterStart(quarterStart(quarterStart(THROUGH) - 1) - 1); qs >= quarterStart(HIST); qs = quarterStart(qs - 1))
+    qOpts.push(`<option value="q:${qs}">${quarterName(qs)} (${quarterMonths(qs)})</option>`);
+  $("period").querySelector('option[value="all"]').insertAdjacentHTML("beforebegin", qOpts.join(""));
+  $("period").querySelector('option[value="lastq"]').textContent = `Last quarter: ${quarterName(quarterStart(THROUGH) - 1)} (${quarterMonths(quarterStart(THROUGH) - 1)})`;
+  $("period").querySelector('option[value="thisq"]').textContent = `This quarter: ${quarterName(THROUGH)} (${quarterMonths(THROUGH)}), to date`;
 
   ["period", "team", "grace", "unrec", "showTerm", "from", "to", "calSort"].forEach(id => $(id).addEventListener("change", render));
   $("from").addEventListener("change", () => { $("period").value = "custom"; });
@@ -1230,11 +1344,21 @@ function init() {
     if (ev.target.id === "empSel") { state.emp = +ev.target.value; renderTab(); }
   });
   $("shiftForm").addEventListener("submit", saveShift);
+  $("shiftDays").addEventListener("change", ev => {
+    const k = ev.target.dataset.day; if (!k) return;
+    for (const a of ["start", "end"]) document.querySelector(`[data-${a}="${k}"]`).disabled = !ev.target.checked;
+  });
+  $("copyFirst").addEventListener("click", () => {
+    const on = WEEK_ORDER.filter(k => document.querySelector(`[data-day="${k}"]`).checked);
+    if (!on.length) return;
+    const st = document.querySelector(`[data-start="${on[0]}"]`).value, en = document.querySelector(`[data-end="${on[0]}"]`).value;
+    for (const k of on) { document.querySelector(`[data-start="${k}"]`).value = st; document.querySelector(`[data-end="${k}"]`).value = en; }
+  });
   $("shiftCancel").addEventListener("click", () => $("shiftDialog").close());
 
-  $("notes").innerHTML = `<p>On time means clocking in no later than each person's start time plus the grace period. The company default is ${clock(DEF_START)} to ${clock(DEF_END)}; the Start times tab lists anyone with a different schedule. Left early means the last clock-out was before the scheduled end. Days with a partial-day absence are left out of both measures.</p>
-    <p>Unrecorded missed days are weekdays, other than company holidays and dates outside employment, with no clock-in and no approved time off. When a team is selected, these are counted only for people currently on that team.</p>
-    <p>Changes (▲ ▼) compare with the period of the same length just before the one selected. Needs attention lists anyone with unrecorded days, late on at least ${pct(ATTN.lateShare)} of days and ${Math.round(ATTN.above * 100)} points above the group's overall rate (${ATTN.lateDays} or more late days), an on-time rate down ${Math.round(ATTN.drop * 100)} points or more from the previous period, or early departures on at least ${pct(ATTN.leftShare)} of days and ${Math.round(ATTN.above * 100)} points above the group. Terminated employees are hidden unless shown with the toggle, and never appear in Needs attention.</p>
+  $("notes").innerHTML = `<p>On time means clocking in no later than that day's scheduled start plus the grace period. The company default is ${esc(describeDays(DEFAULT_DAYS))}; the Schedules tab lists anyone with different days or hours. Left early means the last clock-out was before the scheduled end. Days with a partial-day absence, and work on days a person isn't scheduled, are left out of both measures.</p>
+    <p>Unrecorded missed days are scheduled days, other than company holidays and dates outside employment, with no clock-in and no approved time off. When a team is selected, these are counted only for people currently on that team.</p>
+    <p>Changes (▲ ▼) compare a quarter with the previous calendar quarter (the same number of days into it while a quarter is in progress), and other periods with the same number of days just before. Needs attention lists anyone with unrecorded days, late on at least ${pct(ATTN.lateShare)} of days and ${Math.round(ATTN.above * 100)} points above the group's overall rate (${ATTN.lateDays} or more late days), an on-time rate down ${Math.round(ATTN.drop * 100)} points or more from the previous period, or early departures on at least ${pct(ATTN.leftShare)} of days and ${Math.round(ATTN.above * 100)} points above the group. Terminated employees are hidden unless shown with the toggle, and never appear in Needs attention.</p>
     <p>Times are ${esc(D.settings.time_zone.replace("_", " "))}. Absences count when Processed or Approved in isolved.</p>`;
   render();
 }
@@ -1268,11 +1392,12 @@ async function load(session) {
   show("loading");
   try {
     const email = (session.user.email || "").toLowerCase();
-    const users = await fetchAll("app_users", "email,full_name,role,isolved_employee_id,active", ["email"]);
+    const users = await fetchAll("app_users", "*", ["email"]);
     const me = users.find(u => u.email.toLowerCase() === email);
     if (!me) return fail(`${session.user.email} isn't set up for the dashboard. Ask HR to add your access.`);
-    const listShifts = async () => (await fetchAll("shift_overrides", "id,employee_id,effective_from,start_time,end_time,note,updated_by", ["employee_id", "effective_from"]))
-      .map(r => ({ id: r.id, emp: r.employee_id, from: r.effective_from, start: toMin(r.start_time), end: toMin(r.end_time), note: r.note, by: r.updated_by }));
+    const listShifts = async () => (await fetchAll("shift_overrides", "*", ["employee_id", "effective_from"]))
+      .map(r => ({ id: r.id, emp: r.employee_id, from: r.effective_from, start: toMin(r.start_time), end: toMin(r.end_time),
+                   days: r.days || null, note: r.note, by: r.updated_by }));
     const [settingsRows, holidays, employees, days, shifts] = await Promise.all([
       fetchAll("settings", "key,value", ["key"]),
       fetchAll("holidays", "holiday_date,holiday_name", ["holiday_date"]),
@@ -1301,7 +1426,7 @@ async function load(session) {
       shifts,
       viewer: { role: me.role, name: me.full_name || me.email },
       team_leads: users.filter(u => u.active && u.isolved_employee_id != null)
-                       .map(u => ({ id: u.isolved_employee_id, name: u.full_name })),
+                       .map(u => ({ id: u.isolved_employee_id, name: u.full_name, dept: u.department || "" })),
       generated_at: S.uploaded_at || new Date().toISOString(),
       data_through: S.data_through || new Date().toISOString().slice(0, 10),
       settings: { shift_start: S.shift_start || "08:00", shift_end: S.shift_end || "16:30",
