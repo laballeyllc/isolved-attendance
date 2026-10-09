@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Attendance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  color-scheme: light;
+  --paper: #f2f4f6;
+  --sheet: #ffffff;
+  --ink: #1c2b39;
+  --muted: #5b6875;
+  --rule: #d6dde4;
+  --early: #8db3d1;
+  --ontime: #2e7d6b;
+  --late: #c8691c;
+  --verylate: #9c2f3b;
+  --focus: #2b6cb0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--paper); color: var(--ink); }
+body {
+  font-family: "Public Sans", system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 15px; line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+}
+.wrap { max-width: 1240px; margin: 0 auto; padding: 28px 24px 64px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.01em; margin: 0; }
+h2 { font-size: 17px; font-weight: 700; margin: 0 0 4px; }
+p { margin: 0; }
+.sub { color: var(--muted); font-size: 14px; }
+button, select, input { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* header + controls */
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px 32px; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: end; margin-top: 22px;
+  padding-bottom: 18px; border-bottom: 1px solid var(--rule); }
+.field { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); }
+.field select, .field input[type=date], .field input[type=number] {
+  background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 8px; min-height: 36px; }
+.field input[type=number] { width: 84px; }
+.check { flex-direction: row; align-items: center; gap: 8px; color: var(--ink); font-size: 14px; min-height: 36px; }
+.check input { width: 18px; height: 18px; accent-color: var(--ontime); }
+.hidden { display: none !important; }
+
+/* hero: the arrival strip */
+.hero { margin-top: 28px; display: grid; grid-template-columns: minmax(220px, 300px) 1fr; gap: 24px 40px; align-items: center; }
+.rate { font-size: 76px; line-height: 0.95; font-weight: 800; letter-spacing: -0.03em; color: var(--ontime); }
+.rate-label { font-size: 17px; font-weight: 600; margin-top: 8px; }
+.rate-note { color: var(--muted); font-size: 14px; margin-top: 6px; max-width: 34ch; }
+.strip svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13px; color: var(--muted); margin-top: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* figures row */
+.figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); margin-top: 30px;
+  border-top: 2px solid var(--ink); border-bottom: 1px solid var(--rule); }
+.fig { padding: 14px 16px 14px 0; }
+.fig + .fig { padding-left: 16px; border-left: 1px solid var(--rule); }
+.fig b { display: block; font-size: 26px; font-weight: 700; line-height: 1.1; }
+.fig span { font-size: 13px; color: var(--muted); }
+
+/* charts */
+.pair { display: grid; grid-template-columns: 3fr 2fr; gap: 24px; margin-top: 30px; }
+.panel { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 18px 14px; min-width: 0; }
+.panel svg { width: 100%; height: auto; display: block; margin-top: 10px; }
+.axis { font-size: 11px; fill: var(--muted); }
+.gridline { stroke: var(--rule); stroke-width: 1; }
+
+/* tabs + tables */
+.tabs { display: flex; gap: 4px; margin-top: 34px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; align-items: end; }
+.tab { background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; cursor: pointer;
+  font-weight: 600; color: var(--muted); }
+.tab[aria-selected=true] { color: var(--ink); border-bottom-color: var(--ink); }
+.tabs .spacer { flex: 1; }
+.btn { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 12px; cursor: pointer; margin-bottom: 6px; }
+.btn:hover { border-color: var(--muted); }
+.tablewrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--rule); border-top: 0; border-radius: 0 0 8px 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 8px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid #eef1f4; }
+th { font-size: 12.5px; font-weight: 600; color: var(--muted); background: #f8f9fb; white-space: normal; vertical-align: bottom; line-height: 1.25; }
+th.sortable { cursor: pointer; user-select: none; }
+th.sorted { color: var(--ink); }
+th.sorted::after { content: attr(data-dir); margin-left: 4px; }
+td.l, th.l { text-align: left; }
+tbody tr:hover { background: #f6f8fa; }
+tr.clickable { cursor: pointer; }
+.name { font-weight: 600; }
+.pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.p-late { background: #fbeadb; color: #8a4510; }
+.p-vlate { background: #f6dde0; color: var(--verylate); }
+.p-early { background: #e3eef6; color: #2c5677; }
+.p-off { background: #e6f1ee; color: #22604f; }
+.p-miss { background: #eceff2; color: var(--muted); }
+.bar { display: inline-block; height: 8px; border-radius: 2px; background: var(--ontime); vertical-align: middle; margin-right: 8px; }
+
+/* employee detail */
+.detail-head { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: end; padding: 16px; border-bottom: 1px solid var(--rule); }
+.detail-head .figs { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.detail-head .figs div b { display: block; font-size: 20px; }
+.detail-head .figs div span { font-size: 12.5px; color: var(--muted); }
+.empty { padding: 28px 16px; color: var(--muted); }
+footer { margin-top: 28px; font-size: 13px; color: var(--muted); max-width: 80ch; }
+footer p + p { margin-top: 6px; }
+
+@media (max-width: 860px) {
+  .hero, .pair { grid-template-columns: 1fr; }
+  .rate { font-size: 60px; }
+}
+@media print {
+  .controls, .tabs .btn { display: none; }
+  body { background: #fff; }
+}
+</style>
+<style>
+.auth { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.auth form, .auth .msg { width: 100%; max-width: 360px; background: var(--sheet); border: 1px solid var(--rule);
+  border-radius: 10px; padding: 28px; display: flex; flex-direction: column; gap: 14px; }
+.auth h1 { font-size: 26px; }
+.auth input { font: inherit; border: 1px solid var(--rule); border-radius: 6px; padding: 9px 10px; width: 100%; }
+.auth label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.primary { background: var(--ink); color: #fff; border: 0; border-radius: 6px; padding: 10px 14px;
+  font-weight: 600; cursor: pointer; }
+.primary:disabled { opacity: .6; cursor: default; }
+.linkish { background: none; border: 0; padding: 0; color: var(--muted); text-decoration: underline; cursor: pointer; font-size: 13px; }
+.err { color: var(--verylate); font-size: 14px; min-height: 1em; }
+.userbar { display: flex; gap: 14px; align-items: center; font-size: 13px; color: var(--muted); flex-wrap: wrap; }
+dialog { border: 1px solid var(--rule); border-radius: 10px; padding: 24px; max-width: 360px; width: 92vw; }
+dialog form { display: flex; flex-direction: column; gap: 12px; }
+dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+dialog input { font: inherit; border: 1px solid var(--rule); border-radius: 6px; padding: 9px 10px; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.1/dist/umd/supabase.js" integrity="sha384-K1nraABOP/zFehpLIUksXebbs7jMpB8gYMlb+uhVKZcWT/9Vkq1+qhv6ndC+1Yuz" crossorigin="anonymous"></script>
+</head>
+<body>
+
+<div class="auth" id="auth">
+  <form id="signin" class="hidden" autocomplete="on">
+    <div><h1>Attendance</h1><p class="sub">Laballey LLC. Sign in to continue.</p></div>
+    <label>Email <input type="email" id="email" autocomplete="username" required></label>
+    <label>Password <input type="password" id="password" autocomplete="current-password" required></label>
+    <p class="err" id="signinErr" role="alert"></p>
+    <button class="primary" type="submit">Sign in</button>
+    <button class="linkish" type="button" id="forgot">Forgot your password?</button>
+  </form>
+  <form id="setpw" class="hidden">
+    <div><h1>Set your password</h1><p class="sub">Use at least 10 characters.</p></div>
+    <label>New password <input type="password" id="newpw" autocomplete="new-password" minlength="10" required></label>
+    <label>Confirm password <input type="password" id="newpw2" autocomplete="new-password" minlength="10" required></label>
+    <p class="err" id="setpwErr" role="alert"></p>
+    <button class="primary" type="submit">Save password</button>
+  </form>
+  <div class="msg hidden" id="loading"><h1>Attendance</h1><p class="sub">Loading attendance data...</p></div>
+  <div class="msg hidden" id="failed"><h1>Attendance</h1><p id="failedMsg"></p>
+    <button class="primary" type="button" id="failedOut">Sign out</button></div>
+</div>
+<dialog id="pwDialog">
+  <form id="pwForm">
+    <h2>Change password</h2>
+    <label>New password <input type="password" id="chpw" autocomplete="new-password" minlength="10" required></label>
+    <label>Confirm password <input type="password" id="chpw2" autocomplete="new-password" minlength="10" required></label>
+    <p class="err" id="chpwErr" role="alert"></p>
+    <div style="display:flex; gap:10px; justify-content:flex-end">
+      <button type="button" class="btn" id="pwCancel">Cancel</button>
+      <button type="submit" class="primary">Save password</button>
+    </div>
+  </form>
+</dialog>
+<div id="app" class="hidden">
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Attendance</h1>
+      <p class="sub" id="meta"></p>
+    </div>
+    <div class="userbar"><span id="whoami"></span><button class="linkish" id="changepw" type="button">Change password</button><button class="linkish" id="signout" type="button">Sign out</button></div>
+  </header>
+
+  <div class="controls" role="group" aria-label="Filters">
+    <label class="field">Period
+      <select id="period">
+        <option value="lastq">Last quarter</option>
+        <option value="thisq">This quarter</option>
+        <option value="last30">Last 30 days</option>
+        <option value="ytd">Year to date</option>
+        <option value="all">All data</option>
+        <option value="custom">Custom dates</option>
+      </select>
+    </label>
+    <label class="field" id="fromWrap">From <input type="date" id="from"></label>
+    <label class="field" id="toWrap">To <input type="date" id="to"></label>
+    <label class="field">Team
+      <select id="team"></select>
+    </label>
+    <label class="field">Grace period (min)
+      <input type="number" id="grace" min="0" max="30" step="1" value="0">
+    </label>
+    <label class="field check"><input type="checkbox" id="unrec" checked> Count unrecorded missed days as days off</label>
+  </div>
+
+  <section class="hero" aria-label="Arrival summary">
+    <div>
+      <div class="rate" id="rate">–</div>
+      <div class="rate-label">of arrivals on time</div>
+      <p class="rate-note" id="rateNote"></p>
+    </div>
+    <div class="strip">
+      <h2>When people clocked in</h2>
+      <p class="sub" id="stripSub"></p>
+      <div id="arrivals"></div>
+      <div class="legend">
+        <span><i style="background:var(--early)"></i>Early</span>
+        <span><i style="background:var(--ontime)"></i>On time</span>
+        <span><i style="background:var(--late)"></i>Late</span>
+        <span><i style="background:var(--verylate)"></i>15+ minutes late</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="figures" id="figures" aria-label="Totals"></section>
+
+  <section class="pair">
+    <div class="panel">
+      <h2>On-time rate by week</h2>
+      <p class="sub">Bars show late arrivals each week.</p>
+      <div id="weekly"></div>
+    </div>
+    <div class="panel">
+      <h2>Days off by type</h2>
+      <p class="sub" id="offSub"></p>
+      <div id="offtypes"></div>
+    </div>
+  </section>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" data-tab="punct" aria-selected="true">Punctuality</button>
+    <button class="tab" role="tab" data-tab="off" aria-selected="false">Days off</button>
+    <button class="tab" role="tab" data-tab="emp" aria-selected="false">Employee detail</button>
+    <span class="spacer"></span>
+    <button class="btn" id="csv">Download table (CSV)</button>
+  </div>
+  <div class="tablewrap" id="tablewrap"></div>
+
+  <footer id="notes"></footer>
+</div>
+
+</div>
+<script type="text/plain" id="app-code">
+const D = window.__DASHBOARD_DATA__;
+
+/* ------------------------------------------------------------ constants */
+const C = { EMP:0, DATE:1, SUP:2, MGR:3, IN:4, OUT:5, VS:6, VE:7, WORK:8, REG:9, OT:10, HOL:11,
+            PTO:12, SICK:13, UNPAID:14, BEREAV:15, PERSONAL:16, OTHER:17 };
+const OFF_TYPES = [
+  ["pto", "PTO", C.PTO], ["sick", "Sick", C.SICK], ["unpaid", "Unpaid", C.UNPAID],
+  ["bereav", "Bereavement", C.BEREAV], ["personal", "Personal", C.PERSONAL], ["other", "Other", C.OTHER]
+];
+const DAY = 86400000;
+const HPD = D.settings.hours_per_day_off || 8;
+const [SH, SM] = D.settings.shift_start.split(":").map(Number);
+const SHIFT_START = SH * 60 + SM;
+const [EH, EM] = D.settings.shift_end.split(":").map(Number);
+const SHIFT_END = EH * 60 + EM;
+
+/* ------------------------------------------------------------ helpers */
+const idx = s => Date.UTC(+s.slice(0, 4), +s.slice(5, 7) - 1, +s.slice(8, 10)) / DAY;
+const iso = i => new Date(i * DAY).toISOString().slice(0, 10);
+const wday = i => ((i + 4) % 7 + 7) % 7;               // 0 = Sunday
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmtDate = i => new Date(i * DAY).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+const fmtShort = i => new Date(i * DAY).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+const fmtWday = i => ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][wday(i)];
+const pct = x => x == null || isNaN(x) ? "–" : Math.round(x * 100) + "%";
+const pct1 = x => x == null || isNaN(x) ? "–" : (x * 100).toFixed(1) + "%";
+const num = (x, d = 0) => x == null || isNaN(x) ? "–" : x.toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d });
+const clock = m => {
+  if (m == null || isNaN(m)) return "–";
+  m = Math.round(m); let h = Math.floor(m / 60), mm = ((m % 60) + 60) % 60;
+  const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12;
+  return `${h}:${String(mm).padStart(2, "0")} ${ap}`;
+};
+const signed = m => m == null ? "–" : (m > 0 ? `+${m}` : `${m}`);
+const fullName = e => e ? `${e.last || ""}, ${e.first || ""}` : "Unknown";
+
+const THROUGH = idx(D.data_through);
+const HIST = idx(D.settings.history_start);
+const HOLIDAYS = new Map(D.holidays.map(h => [idx(h.date), h.name]));
+const EMP = new Map(D.employees.map(e => [e.id, { ...e, hireI: e.hire ? idx(e.hire) : null, termI: e.term ? idx(e.term) : null }]));
+const ROWS = D.days.map(r => { const c = r.slice(); c[C.DATE] = idx(r[C.DATE]); return c; });
+
+/* ------------------------------------------------------------ periods */
+function quarterStart(i) { const d = new Date(i * DAY); return Date.UTC(d.getUTCFullYear(), Math.floor(d.getUTCMonth() / 3) * 3, 1) / DAY; }
+function periodRange(p) {
+  if (p === "thisq") return [quarterStart(THROUGH), THROUGH];
+  if (p === "lastq") { const qs = quarterStart(THROUGH); return [quarterStart(qs - 1), qs - 1]; }
+  if (p === "last30") return [THROUGH - 29, THROUGH];
+  if (p === "ytd") { const d = new Date(THROUGH * DAY); return [Date.UTC(d.getUTCFullYear(), 0, 1) / DAY, THROUGH]; }
+  if (p === "all") return [HIST, THROUGH];
+  return null;
+}
+
+/* ------------------------------------------------------------ calculation */
+function compute(a, b, team, grace, countUnrec) {
+  b = Math.min(b, THROUGH); a = Math.max(a, HIST);
+  const byEmp = new Map();
+  for (const r of ROWS) {
+    const d = r[C.DATE];
+    if (d < a || d > b) continue;
+    if (team && r[C.SUP] !== team && r[C.MGR] !== team) continue;
+    if (!byEmp.has(r[C.EMP])) byEmp.set(r[C.EMP], []);
+    byEmp.get(r[C.EMP]).push(r);
+  }
+  // Employees whose CURRENT assignment matches the team get unrecorded-day checks
+  // for the whole period. Former team members are counted only on their recorded days.
+  const current = new Set();
+  for (const e of EMP.values()) {
+    const onTeam = !team || e.sup === team || e.mgr === team;
+    const overlaps = (e.hireI == null || e.hireI <= b) && (e.termI == null || e.termI >= a);
+    if (onTeam && overlaps) current.add(e.id);
+  }
+  const ids = new Set([...byEmp.keys(), ...current]);
+
+  const stats = [], hist = new Map(), weeks = new Map();
+  for (const id of ids) {
+    const e = EMP.get(id); if (!e) continue;
+    const rows = (byEmp.get(id) || []).sort((x, y) => x[C.DATE] - y[C.DATE]);
+    const s = { id, e, rows, workdays: 0, punched: 0, evaluated: 0, ontime: 0, late: 0, lateMin: 0,
+                worst: 0, arrSum: 0, leftEarly: 0, unrec: 0, unrecDays: [], reg: 0, ot: 0, worked: 0,
+                off: Object.fromEntries(OFF_TYPES.map(t => [t[0], 0])) };
+    const recorded = new Set();
+    for (const r of rows) {
+      const offH = OFF_TYPES.reduce((t, x) => t + (r[x[2]] || 0), 0);
+      if (r[C.IN] != null || offH > 0 || (r[C.HOL] || 0) > 0 || (r[C.WORK] || 0) > 0) recorded.add(r[C.DATE]);
+      for (const t of OFF_TYPES) s.off[t[0]] += (r[t[2]] || 0) / HPD;
+      s.reg += r[C.REG] || 0; s.ot += r[C.OT] || 0; s.worked += r[C.WORK] || 0;
+      if (r[C.IN] == null) continue;
+      s.punched++;
+      const partial = offH > 0 && offH < HPD;
+      if (partial) continue;                      // partial-day absence excuses arrival/departure
+      s.evaluated++;
+      const vs = r[C.VS];
+      s.arrSum += r[C.IN];
+      hist.set(vs, (hist.get(vs) || 0) + 1);
+      const wk = r[C.DATE] - wday(r[C.DATE]);
+      const w = weeks.get(wk) || { ev: 0, late: 0 }; w.ev++;
+      if (vs > grace) { s.late++; s.lateMin += vs; s.worst = Math.max(s.worst, vs); w.late++; }
+      else s.ontime++;
+      weeks.set(wk, w);
+      if (r[C.VE] != null && r[C.VE] < 0) s.leftEarly++;
+    }
+    const startI = Math.max(a, e.hireI ?? a), endI = Math.min(b, e.termI ?? b);
+    for (let d = startI; d <= endI; d++) {
+      const wd = wday(d);
+      if (wd === 0 || wd === 6 || HOLIDAYS.has(d)) continue;
+      s.workdays++;
+      if (current.has(id) && !recorded.has(d)) { s.unrec++; s.unrecDays.push(d); }
+    }
+    s.offTotal = Object.values(s.off).reduce((x, y) => x + y, 0) + (countUnrec ? s.unrec : 0);
+    s.onRate = s.evaluated ? s.ontime / s.evaluated : null;
+    s.avgLate = s.late ? s.lateMin / s.late : null;
+    s.avgArr = s.evaluated ? s.arrSum / s.evaluated : null;
+    s.offPct = s.workdays ? s.offTotal / s.workdays : null;
+    if (s.workdays || rows.length) stats.push(s);
+  }
+
+  const T = { emps: stats.filter(s => s.punched || s.offTotal).length, punched: 0, evaluated: 0, ontime: 0, late: 0,
+              lateMin: 0, leftEarly: 0, unrec: 0, ot: 0, reg: 0, off: Object.fromEntries(OFF_TYPES.map(t => [t[0], 0])) };
+  for (const s of stats) {
+    T.punched += s.punched; T.evaluated += s.evaluated; T.ontime += s.ontime; T.late += s.late;
+    T.lateMin += s.lateMin; T.leftEarly += s.leftEarly; T.unrec += s.unrec; T.ot += s.ot; T.reg += s.reg;
+    for (const k in s.off) T.off[k] += s.off[k];
+  }
+  T.offTotal = Object.values(T.off).reduce((x, y) => x + y, 0) + (countUnrec ? T.unrec : 0);
+  T.onRate = T.evaluated ? T.ontime / T.evaluated : null;
+  T.avgLate = T.late ? T.lateMin / T.late : null;
+  return { a, b, stats, T, hist, weeks, grace, countUnrec };
+}
+
+/* ------------------------------------------------------------ charts (plain SVG) */
+function arrivalStrip(hist, grace) {
+  const W = 1000, H = 190, L = 8, R = 8, top = 14, base = 150;
+  const lo = -30, hi = 30, n = hi - lo + 1 + 2;           // per-minute bins + two overflow bins
+  const bins = [];
+  let under = 0, over = 0;
+  for (const [m, c] of hist) { if (m < lo) under += c; else if (m > hi) over += c; }
+  bins.push({ k: "under", c: under });
+  for (let m = lo; m <= hi; m++) bins.push({ k: m, c: hist.get(m) || 0 });
+  bins.push({ k: "over", c: over });
+  const max = Math.max(1, ...bins.map(b => b.c));
+  const gap = 10, bw = (W - L - R - gap * 2) / n;
+  let x = L, out = "";
+  const xs = {};
+  bins.forEach((b, i) => {
+    if (i === 1 || i === bins.length - 1) x += gap;
+    const h = b.c ? Math.max(2, (b.c / max) * (base - top)) : 0;
+    const m = b.k === "under" ? -999 : b.k === "over" ? 999 : b.k;
+    const col = m < 0 ? "var(--early)" : m <= grace ? "var(--ontime)" : m < 15 ? "var(--late)" : "var(--verylate)";
+    const label = b.k === "under" ? "30+ minutes early" : b.k === "over" ? "30+ minutes late"
+      : `${clock(SHIFT_START + b.k)} (${b.k === 0 ? "on the minute" : b.k < 0 ? -b.k + " min early" : b.k + " min late"})`;
+    out += `<rect x="${(x + 0.6).toFixed(1)}" y="${(base - h).toFixed(1)}" width="${(bw - 1.2).toFixed(1)}" height="${h.toFixed(1)}" fill="${col}" rx="1"><title>${esc(label)}: ${b.c} arrivals</title></rect>`;
+    xs[b.k] = x; x += bw;
+  });
+  const startX = xs[0] + bw / 2;
+  let ticks = "";
+  for (const m of [-20, -10, 0, 10, 20]) {
+    const tx = xs[m] + bw / 2;
+    ticks += `<line x1="${tx}" x2="${tx}" y1="${base}" y2="${base + 5}" stroke="var(--muted)"/>`;
+    ticks += `<text class="axis" x="${tx}" y="${base + 19}" text-anchor="middle">${clock(SHIFT_START + m)}</text>`;
+  }
+  ticks += `<text class="axis" x="${L}" y="${base + 19}" text-anchor="start">Before ${clock(SHIFT_START - 30)}</text>`;
+  ticks += `<text class="axis" x="${W - R}" y="${base + 19}" text-anchor="end">After ${clock(SHIFT_START + 30)}</text>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Histogram of clock-in times around shift start">
+    <line x1="${L}" x2="${W - R}" y1="${base}" y2="${base}" stroke="var(--ink)" stroke-width="1"/>
+    ${out}
+    <line x1="${startX}" x2="${startX}" y1="${top - 8}" y2="${base}" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="3 3"/>
+    <text x="${startX + 6}" y="${top}" font-size="12" font-weight="600" fill="var(--ink)">Shift starts ${clock(SHIFT_START)}</text>
+    ${ticks}</svg>`;
+}
+
+function weeklyChart(weeks) {
+  const keys = [...weeks.keys()].sort((x, y) => x - y);
+  if (!keys.length) return `<p class="empty">No arrivals in this period.</p>`;
+  const W = 640, H = 230, L = 40, R = 34, top = 12, base = 190;
+  const iw = (W - L - R) / keys.length, maxLate = Math.max(1, ...keys.map(k => weeks.get(k).late));
+  const rates = keys.map(k => { const w = weeks.get(k); return w.ev ? (w.ev - w.late) / w.ev : 1; });
+  const lo = Math.min(0.5, Math.floor((Math.min(...rates) - 0.05) * 10) / 10);
+  const yOf = r => base - ((r - lo) / (1 - lo)) * (base - top);
+  const step = (1 - lo) > 0.6 ? 0.2 : 0.1;
+  let bars = "", pts = [], grid = "", labels = "";
+  for (let p = 1; p >= lo - 1e-9; p -= step) {
+    const y = yOf(p);
+    grid += `<line class="gridline" x1="${L}" x2="${W - R}" y1="${y}" y2="${y}"/><text class="axis" x="${L - 6}" y="${y + 4}" text-anchor="end">${Math.round(p * 100)}%</text>`;
+  }
+  const every = Math.ceil(keys.length / 8);
+  keys.forEach((k, i) => {
+    const w = weeks.get(k), cx = L + iw * i + iw / 2;
+    const bh = (w.late / maxLate) * (base - top) * 0.45;
+    bars += `<rect x="${cx - iw * 0.3}" y="${base - bh}" width="${iw * 0.6}" height="${bh}" fill="var(--late)" opacity="0.35"><title>Week of ${fmtShort(k)}: ${w.late} late arrivals</title></rect>`;
+    const r = w.ev ? (w.ev - w.late) / w.ev : 0;
+    pts.push([cx, yOf(r), r, k, w]);
+    if (i % every === 0) labels += `<text class="axis" x="${cx}" y="${base + 16}" text-anchor="middle">${fmtShort(k)}</text>`;
+  });
+  const path = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+  const dots = pts.map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="var(--ontime)"><title>Week of ${fmtShort(p[3])}: ${pct(p[2])} on time (${p[4].ev - p[4].late} of ${p[4].ev})</title></circle>`).join("");
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Weekly on-time rate">
+    ${grid}
+    ${bars}<path d="${path}" fill="none" stroke="var(--ontime)" stroke-width="2.5"/>${dots}${labels}</svg>`;
+}
+
+function offChart(T, countUnrec) {
+  const items = OFF_TYPES.map(t => [t[1], T.off[t[0]]]).filter(x => x[1] > 0);
+  if (countUnrec && T.unrec) items.push(["Unrecorded", T.unrec]);
+  if (!items.length) return `<p class="empty">No time off in this period.</p>`;
+  items.sort((x, y) => y[1] - x[1]);
+  const W = 420, rh = 34, H = items.length * rh + 6, L = 108, R = 56;
+  const max = Math.max(...items.map(x => x[1]));
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Days off by type">` + items.map((it, i) => {
+    const y = i * rh + 6, w = (it[1] / max) * (W - L - R);
+    const col = it[0] === "Unrecorded" ? "#aab4bf" : "var(--ontime)";
+    return `<text x="${L - 10}" y="${y + 16}" font-size="13" text-anchor="end" fill="var(--ink)">${esc(it[0])}</text>
+      <rect x="${L}" y="${y + 4}" width="${Math.max(2, w)}" height="16" rx="2" fill="${col}"/>
+      <text x="${L + w + 8}" y="${y + 16}" font-size="13" font-weight="600" fill="var(--ink)">${num(it[1], 1)}</text>`;
+  }).join("") + `</svg>`;
+}
+
+/* ------------------------------------------------------------ tables */
+const TABLES = {
+  punct: {
+    defaultSort: [["onRate", -1], ["avgLate", 1]],
+    rows: R => R.stats.filter(s => s.evaluated > 0),
+    cols: [
+      ["rank", "#", s => s._rank, null],
+      ["name", "Employee", s => fullName(s.e), s => `<span class="name">${esc(fullName(s.e))}</span>`, "l"],
+      ["sup", "Supervisor", s => s.e.sup_name || "", s => esc(s.e.sup_name || "–"), "l"],
+      ["evaluated", "Days evaluated", s => s.evaluated],
+      ["onRate", "On time", s => s.onRate, s => `<span class="bar" style="width:${Math.round((s.onRate || 0) * 60)}px"></span>${pct1(s.onRate)}`],
+      ["late", "Late days", s => s.late],
+      ["avgLate", "Avg min late", s => s.avgLate, s => s.avgLate == null ? "–" : num(s.avgLate, 1)],
+      ["lateMin", "Total min late", s => s.lateMin],
+      ["worst", "Worst (min)", s => s.worst],
+      ["avgArr", "Avg arrival", s => s.avgArr, s => clock(s.avgArr)],
+      ["leftEarly", "Left early", s => s.leftEarly],
+    ],
+  },
+  off: {
+    defaultSort: [["offTotal", -1], ["offPct", -1]],
+    rows: R => R.stats.filter(s => s.workdays > 0 || s.offTotal > 0),
+    cols: [
+      ["rank", "#", s => s._rank, null],
+      ["name", "Employee", s => fullName(s.e), s => `<span class="name">${esc(fullName(s.e))}</span>`, "l"],
+      ["sup", "Supervisor", s => s.e.sup_name || "", s => esc(s.e.sup_name || "–"), "l"],
+      ["pto", "PTO", s => s.off.pto, s => num(s.off.pto, 1)],
+      ["sick", "Sick", s => s.off.sick, s => num(s.off.sick, 1)],
+      ["unpaid", "Unpaid", s => s.off.unpaid, s => num(s.off.unpaid, 1)],
+      ["bereav", "Bereavement", s => s.off.bereav, s => num(s.off.bereav, 1)],
+      ["personal", "Personal / other", s => s.off.personal + s.off.other, s => num(s.off.personal + s.off.other, 1)],
+      ["unrec", "Unrecorded", s => s.unrec],
+      ["offTotal", "Total days off", s => s.offTotal, s => `<b>${num(s.offTotal, 1)}</b>`],
+      ["workdays", "Workdays", s => s.workdays],
+      ["offPct", "% of schedule", s => s.offPct, s => pct1(s.offPct)],
+    ],
+  },
+};
+
+const state = { tab: "punct", sort: { punct: null, off: null }, emp: null, R: null };
+
+function sortedRows(key) {
+  const T = TABLES[key], rows = T.rows(state.R).slice();
+  const spec = state.sort[key] ? [state.sort[key]] : T.defaultSort;
+  const get = Object.fromEntries(T.cols.map(c => [c[0], c[2]]));
+  rows.sort((x, y) => {
+    for (const [k, dir] of [...spec, ...T.defaultSort]) {
+      let a = get[k](x), b = get[k](y);
+      if (a == null) a = dir > 0 ? Infinity : -Infinity;
+      if (b == null) b = dir > 0 ? Infinity : -Infinity;
+      if (a < b) return -dir; if (a > b) return dir;
+    }
+    return fullName(x.e).localeCompare(fullName(y.e));
+  });
+  rows.forEach((s, i) => s._rank = i + 1);
+  return rows;
+}
+
+function renderTable(key) {
+  const T = TABLES[key], rows = sortedRows(key), cur = state.sort[key];
+  if (!rows.length) return `<p class="empty">No employees match these filters.</p>`;
+  const head = T.cols.map(c => {
+    const sorted = cur && cur[0] === c[0];
+    const sortable = c[0] !== "rank";
+    return `<th class="${c[4] || ""} ${sortable ? "sortable" : ""} ${sorted ? "sorted" : ""}" ${sortable ? `data-sort="${c[0]}" tabindex="0"` : ""} ${sorted ? `data-dir="${cur[1] > 0 ? "▲" : "▼"}"` : ""} scope="col">${c[1]}</th>`;
+  }).join("");
+  const body = rows.map(s => `<tr class="clickable" data-emp="${s.id}" title="Open daily detail">${T.cols.map(c =>
+    `<td class="${c[4] || ""}">${c[3] ? c[3](s) : esc(c[2](s) ?? "–")}</td>`).join("")}</tr>`).join("");
+  return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function renderEmployee() {
+  const R = state.R;
+  const list = R.stats.slice().sort((x, y) => fullName(x.e).localeCompare(fullName(y.e)));
+  if (!list.length) return `<p class="empty">No employees match these filters.</p>`;
+  if (!state.emp || !list.find(s => s.id === state.emp)) state.emp = list[0].id;
+  const s = list.find(x => x.id === state.emp);
+  const opts = list.map(x => `<option value="${x.id}" ${x.id === s.id ? "selected" : ""}>${esc(fullName(x.e))}</option>`).join("");
+  const byDate = new Map(s.rows.map(r => [r[C.DATE], r]));
+  const unrec = new Set(s.unrecDays);
+  const lines = [];
+  for (let d = Math.min(R.b, THROUGH); d >= R.a; d--) {
+    const r = byDate.get(d), wd = wday(d);
+    const hol = HOLIDAYS.get(d);
+    const employed = (s.e.hireI == null || d >= s.e.hireI) && (s.e.termI == null || d <= s.e.termI);
+    if (!r && !unrec.has(d) && !(hol && wd > 0 && wd < 6 && employed)) continue;
+    let flags = [], offTxt = [];
+    if (r) {
+      for (const t of OFF_TYPES) if (r[t[2]]) offTxt.push(`${t[1]} ${num(r[t[2]], 1)}h`);
+      const offH = OFF_TYPES.reduce((t, x) => t + (r[x[2]] || 0), 0);
+      const partial = r[C.IN] != null && offH > 0 && offH < HPD;
+      if (r[C.IN] != null && !partial) {
+        if (r[C.VS] > R.grace) flags.push(`<span class="pill ${r[C.VS] >= 15 ? "p-vlate" : "p-late"}">Late ${r[C.VS]} min</span>`);
+        if (r[C.VE] != null && r[C.VE] < 0) flags.push(`<span class="pill p-early">Left ${-r[C.VE]} min early</span>`);
+      }
+      if (partial) flags.push(`<span class="pill p-off">Partial day off</span>`);
+      else if (r[C.IN] == null && offH > 0) flags.push(`<span class="pill p-off">Day off</span>`);
+    }
+    if (unrec.has(d)) flags.push(`<span class="pill p-miss">No punch or time off recorded</span>`);
+    if (hol) flags.push(`<span class="pill p-miss">${esc(hol)}</span>`);
+    lines.push(`<tr><td class="l">${fmtWday(d)} ${fmtDate(d)}</td>
+      <td>${r ? clock(r[C.IN]) : "–"}</td><td>${r ? clock(r[C.OUT]) : "–"}</td>
+      <td>${r && r[C.IN] != null ? signed(r[C.VS]) : "–"}</td><td>${r && r[C.OUT] != null ? signed(r[C.VE]) : "–"}</td>
+      <td>${r && r[C.WORK] ? num(r[C.WORK], 2) : "–"}</td><td class="l">${offTxt.join(", ") || ""}</td><td class="l">${flags.join(" ")}</td></tr>`);
+  }
+  const e = s.e;
+  return `<div class="detail-head">
+      <label class="field">Employee <select id="empSel">${opts}</select></label>
+      <div class="figs">
+        <div><b>${pct1(s.onRate)}</b><span>on time (${s.ontime} of ${s.evaluated})</span></div>
+        <div><b>${s.late}</b><span>late days, avg ${s.avgLate == null ? "–" : num(s.avgLate, 1)} min</span></div>
+        <div><b>${clock(s.avgArr)}</b><span>average arrival</span></div>
+        <div><b>${num(s.offTotal, 1)}</b><span>days off of ${s.workdays} workdays</span></div>
+        <div><b>${num(s.ot, 1)}</b><span>overtime hours</span></div>
+      </div>
+      <p class="sub" style="flex-basis:100%">#${esc(e.num || "–")}, ${esc(e.pay_type || "")}, ${esc(e.status || "")}.
+        Supervisor ${esc(e.sup_name || "–")}, manager ${esc(e.mgr_name || "–")}.
+        ${e.hire ? "Hired " + fmtDate(idx(e.hire)) + "." : ""} ${e.term ? "Terminated " + fmtDate(idx(e.term)) + "." : ""}</p>
+    </div>
+    ${lines.length ? `<table><thead><tr><th class="l">Date</th><th>In</th><th>Out</th><th>vs start (min)</th><th>vs end (min)</th><th>Hours</th><th class="l">Time off</th><th class="l">Notes</th></tr></thead><tbody>${lines.join("")}</tbody></table>`
+      : `<p class="empty">No activity recorded in this period.</p>`}`;
+}
+
+/* ------------------------------------------------------------ CSV */
+function toCSV() {
+  const q = v => { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v; };
+  let lines = [];
+  if (state.tab === "emp") {
+    const tbl = document.querySelector("#tablewrap table"); if (!tbl) return;
+    lines = [...tbl.rows].map(tr => [...tr.cells].map(td => q(td.innerText.trim())).join(","));
+  } else {
+    const T = TABLES[state.tab], rows = sortedRows(state.tab);
+    lines.push(T.cols.map(c => q(c[1])).join(","));
+    for (const s of rows) lines.push(T.cols.map(c => {
+      const v = c[2](s); return q(typeof v === "number" ? Math.round(v * 1000) / 1000 : v);
+    }).join(","));
+  }
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `attendance-${state.tab}-${iso(state.R.a)}-to-${iso(state.R.b)}.csv`;
+  a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ------------------------------------------------------------ render */
+const $ = id => document.getElementById(id);
+
+function render() {
+  const p = $("period").value;
+  let range = periodRange(p);
+  $("fromWrap").classList.toggle("hidden", p !== "custom");
+  $("toWrap").classList.toggle("hidden", p !== "custom");
+  if (range) { $("from").value = iso(range[0]); $("to").value = iso(range[1]); }
+  else range = [idx($("from").value || iso(HIST)), idx($("to").value || iso(THROUGH))];
+  if (range[1] < range[0]) range = [range[1], range[0]];
+  const team = $("team").value ? +$("team").value : null;
+  const grace = Math.max(0, +$("grace").value || 0);
+  const R = state.R = compute(range[0], range[1], team, grace, $("unrec").checked);
+  const T = R.T;
+
+  $("rate").textContent = pct(T.onRate);
+  $("rateNote").textContent = T.evaluated
+    ? `${num(T.late)} late arrivals out of ${num(T.evaluated)} days, averaging ${num(T.avgLate, 1)} minutes late.`
+    : "No clock-ins in this period.";
+  $("stripSub").textContent = `${fmtDate(R.a)} to ${fmtDate(R.b)}. Each bar is one minute.` +
+    (grace ? ` Arrivals up to ${grace} min after start count as on time.` : "");
+  $("arrivals").innerHTML = arrivalStrip(R.hist, grace);
+
+  const figs = [
+    [num(T.emps), "employees"],
+    [num(T.punched), "days worked"],
+    [num(T.late), "late arrivals"],
+    [T.avgLate == null ? "–" : num(T.avgLate, 1), "avg minutes late"],
+    [num(T.leftEarly), "left early"],
+    [num(T.offTotal, 1), "days off"],
+    [num(T.unrec), "unrecorded missed days"],
+    [num(T.ot, 1), "overtime hours"],
+  ];
+  $("figures").innerHTML = figs.map(f => `<div class="fig"><b>${f[0]}</b><span>${f[1]}</span></div>`).join("");
+  $("weekly").innerHTML = weeklyChart(R.weeks);
+  $("offSub").textContent = `Hours converted at ${HPD} hours per day.` + (R.countUnrec ? " Includes unrecorded missed days." : "");
+  $("offtypes").innerHTML = offChart(T, R.countUnrec);
+  renderTab();
+}
+
+function renderTab() {
+  document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", t.dataset.tab === state.tab));
+  $("tablewrap").innerHTML = state.tab === "emp" ? renderEmployee() : renderTable(state.tab);
+}
+
+/* ------------------------------------------------------------ setup */
+function init() {
+  const through = fmtDate(THROUGH), gen = new Date(D.generated_at);
+  $("meta").textContent = `${D.company}. Hourly employees. Data through ${through}, built ${gen.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}.`;
+
+  const teamIds = new Set();
+  for (const r of ROWS) { if (r[C.SUP]) teamIds.add(r[C.SUP]); if (r[C.MGR]) teamIds.add(r[C.MGR]); }
+  for (const e of EMP.values()) { if (e.sup) teamIds.add(e.sup); if (e.mgr) teamIds.add(e.mgr); }
+  const teams = [...teamIds].map(id => [id, D.people[id] || `Employee ${id}`]).sort((x, y) => x[1].localeCompare(y[1]));
+  $("team").innerHTML = `<option value="">Everyone</option>` + teams.map(t => `<option value="${t[0]}">${esc(t[1])}</option>`).join("");
+  $("from").min = $("to").min = iso(HIST); $("from").max = $("to").max = iso(THROUGH);
+
+  ["period", "team", "grace", "unrec", "from", "to"].forEach(id => $(id).addEventListener("change", render));
+  $("from").addEventListener("change", () => { $("period").value = "custom"; });
+  $("to").addEventListener("change", () => { $("period").value = "custom"; });
+  document.querySelectorAll(".tab").forEach(t => t.addEventListener("click", () => { state.tab = t.dataset.tab; renderTab(); }));
+  $("csv").addEventListener("click", toCSV);
+
+  $("tablewrap").addEventListener("click", ev => {
+    const th = ev.target.closest("th[data-sort]");
+    if (th) {
+      const k = th.dataset.sort, cur = state.sort[state.tab];
+      const numeric = !["name", "sup"].includes(k);
+      state.sort[state.tab] = cur && cur[0] === k ? [k, -cur[1]] : [k, numeric ? -1 : 1];
+      renderTab(); return;
+    }
+    const tr = ev.target.closest("tr[data-emp]");
+    if (tr) { state.emp = +tr.dataset.emp; state.tab = "emp"; renderTab(); window.scrollTo({ top: $("tablewrap").offsetTop - 80 }); }
+  });
+  $("tablewrap").addEventListener("keydown", ev => {
+    if ((ev.key === "Enter" || ev.key === " ") && ev.target.matches("th[data-sort]")) { ev.preventDefault(); ev.target.click(); }
+  });
+  $("tablewrap").addEventListener("change", ev => {
+    if (ev.target.id === "empSel") { state.emp = +ev.target.value; renderTab(); }
+  });
+
+  $("notes").innerHTML = `<p>On time means clocking in no later than ${clock(SHIFT_START)} plus the grace period. Left early means the last clock-out of the day was before ${clock(SHIFT_END)}. Days with a partial-day absence are left out of both measures.</p>
+    <p>Unrecorded missed days are weekdays, other than company holidays and dates outside employment, with no clock-in and no approved time off. When a team is selected, these are counted only for people currently on that team.</p>
+    <p>Times are ${esc(D.settings.time_zone.replace("_", " "))}. Absences count when Processed or Approved in isolved.</p>`;
+  render();
+}
+init();
+</script>
+<script>
+const SB_URL = "https://tavnveatkfotepryxjjr.supabase.co", SB_KEY = "sb_publishable_jfEP_qCRPR4yTKHO9Q8bgw_gNbD7FJJ";
+const linkType = new URLSearchParams(location.hash.slice(1)).get("type");
+const el = id => document.getElementById(id);
+const screens = ["signin", "setpw", "loading", "failed"];
+const show = id => { screens.forEach(s => el(s).classList.toggle("hidden", s !== id)); el("auth").classList.remove("hidden"); };
+const fail = msg => { el("failedMsg").textContent = msg; show("failed"); };
+let client;
+
+function toMin(t) { if (!t) return null; const [h, m] = t.split(":"); return +h * 60 + +m; }
+function n(x) { return x == null ? null : Number(x); }
+
+async function fetchAll(table, cols, orders) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    let q = client.from(table).select(cols);
+    for (const o of orders) q = q.order(o);
+    const { data, error } = await q.range(from, from + 999);
+    if (error) throw error;
+    out.push(...data);
+    if (data.length < 1000) return out;
+  }
+}
+
+async function load(session) {
+  show("loading");
+  try {
+    const email = (session.user.email || "").toLowerCase();
+    const users = await fetchAll("app_users", "email,full_name,role", ["email"]);
+    const me = users.find(u => u.email.toLowerCase() === email);
+    if (!me) return fail(`${session.user.email} isn't set up for the dashboard. Ask HR to add your access.`);
+    const [settingsRows, holidays, employees, days] = await Promise.all([
+      fetchAll("settings", "key,value", ["key"]),
+      fetchAll("holidays", "holiday_date,holiday_name", ["holiday_date"]),
+      fetchAll("employees", "employee_id,employee_number,first_name,last_name,pay_type,employment_status,hire_date,termination_date,supervisor_id,supervisor_name,manager_id,manager_name", ["employee_id"]),
+      fetchAll("daily_attendance", "employee_id,work_date,supervisor_id,supervisor_name,manager_id,manager_name,first_in,last_out,minutes_vs_start,minutes_vs_end,worked_hours,regular_hours,overtime_hours,holiday_hours,pto_hours,sick_hours,unpaid_hours,bereavement_hours,personal_hours,other_off_hours", ["work_date", "employee_id"]),
+    ]);
+    const S = Object.fromEntries(settingsRows.map(r => [r.key, r.value]));
+    const people = {};
+    for (const r of days) { if (r.supervisor_id) people[r.supervisor_id] = r.supervisor_name; if (r.manager_id) people[r.manager_id] = r.manager_name; }
+    for (const e of employees) { if (e.supervisor_id && !people[e.supervisor_id]) people[e.supervisor_id] = e.supervisor_name; if (e.manager_id && !people[e.manager_id]) people[e.manager_id] = e.manager_name; }
+    window.__DASHBOARD_DATA__ = {
+      company: S.company_name || "Laballey LLC",
+      generated_at: S.uploaded_at || new Date().toISOString(),
+      data_through: S.data_through || new Date().toISOString().slice(0, 10),
+      settings: { shift_start: S.shift_start || "08:00", shift_end: S.shift_end || "16:30",
+                  time_zone: S.time_zone || "America/Chicago", history_start: S.history_start || "2026-01-01",
+                  hours_per_day_off: Number(S.hours_per_day_off || 8) },
+      holidays: holidays.map(h => ({ date: h.holiday_date, name: h.holiday_name })),
+      people,
+      employees: employees.map(e => ({ id: e.employee_id, num: e.employee_number, first: e.first_name, last: e.last_name,
+        pay_type: e.pay_type, status: e.employment_status, hire: e.hire_date, term: e.termination_date,
+        sup: e.supervisor_id, sup_name: e.supervisor_name, mgr: e.manager_id, mgr_name: e.manager_name })),
+      days: days.map(r => [r.employee_id, r.work_date, r.supervisor_id, r.manager_id, toMin(r.first_in), toMin(r.last_out),
+        r.minutes_vs_start, r.minutes_vs_end, n(r.worked_hours), n(r.regular_hours), n(r.overtime_hours), n(r.holiday_hours),
+        n(r.pto_hours), n(r.sick_hours), n(r.unpaid_hours), n(r.bereavement_hours), n(r.personal_hours), n(r.other_off_hours)]),
+    };
+    el("whoami").textContent = `Signed in as ${me.full_name || me.email}${me.role === "admin" ? " (admin)" : ""}.`;
+    el("auth").classList.add("hidden");
+    el("app").classList.remove("hidden");
+    const s = document.createElement("script");
+    s.textContent = el("app-code").textContent;
+    document.body.appendChild(s);
+  } catch (e) {
+    fail("The attendance data couldn't be loaded. Reload the page to try again. If it keeps happening, tell HR. (" + (e.message || e) + ")");
+  }
+}
+
+async function start() {
+  if (!window.supabase) return fail("The sign-in service couldn't load. Check your internet connection and reload the page.");
+  client = supabase.createClient(SB_URL, SB_KEY);
+  client.auth.onAuthStateChange(event => { if (event === "PASSWORD_RECOVERY") show("setpw"); });
+  const { data: { session } } = await client.auth.getSession();
+  if (!session) return show("signin");
+  if (linkType === "invite" || linkType === "recovery") return show("setpw");
+  load(session);
+}
+
+el("signin").addEventListener("submit", async ev => {
+  ev.preventDefault(); el("signinErr").textContent = "";
+  const btn = ev.submitter; if (btn) btn.disabled = true;
+  const { data, error } = await client.auth.signInWithPassword({ email: el("email").value.trim(), password: el("password").value });
+  if (btn) btn.disabled = false;
+  if (error) { el("signinErr").textContent = "That email and password don't match. Try again or reset your password."; return; }
+  el("password").value = ""; load(data.session);
+});
+el("forgot").addEventListener("click", async () => {
+  const email = el("email").value.trim();
+  if (!email) { el("signinErr").textContent = "Enter your email first, then select Forgot your password."; return; }
+  await client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  el("signinErr").textContent = "If that email has access, a reset link is on its way. If it doesn't arrive, ask HR to reset your password.";
+});
+el("setpw").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (el("newpw").value !== el("newpw2").value) { el("setpwErr").textContent = "The passwords don't match."; return; }
+  const { error } = await client.auth.updateUser({ password: el("newpw").value });
+  if (error) { el("setpwErr").textContent = error.message; return; }
+  history.replaceState(null, "", location.pathname);
+  const { data: { session } } = await client.auth.getSession();
+  load(session);
+});
+el("failedOut").addEventListener("click", async () => { await client.auth.signOut(); location.reload(); });
+el("signout").addEventListener("click", async () => { await client.auth.signOut(); location.reload(); });
+el("changepw").addEventListener("click", () => { el("chpwErr").textContent = ""; el("pwDialog").showModal(); });
+el("pwCancel").addEventListener("click", () => el("pwDialog").close());
+el("pwForm").addEventListener("submit", async ev => {
+  ev.preventDefault();
+  if (el("chpw").value !== el("chpw2").value) { el("chpwErr").textContent = "The passwords don't match."; return; }
+  const { error } = await client.auth.updateUser({ password: el("chpw").value });
+  if (error) { el("chpwErr").textContent = error.message; return; }
+  el("chpw").value = el("chpw2").value = ""; el("pwDialog").close();
+  alert("Password changed.");
+});
+start();
+</script>
+</body>
+</html>
